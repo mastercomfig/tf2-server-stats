@@ -225,8 +225,6 @@ async def query_runner(
             if updated:
                 map_gamemode = {}
                 gamemodes = {}
-                with open("items_game.json", "w") as fp:
-                    fp.write(str(items_game.items()))
                 matchmaking = items_game["matchmaking_categories"]
                 valid_types = set()
                 for category, details in matchmaking.items():
@@ -382,8 +380,9 @@ async def query_runner(
                 print(players)
                 print(len(new_servers))
                 new_servers.sort(key=get_score, reverse=True)
-                with open("servers.json", "w") as fp:
-                    json.dump(new_servers, fp)
+                # TODO
+                # query A2S for all servers
+                # post servers to API
     except Exception:
         traceback.print_exc()
 
