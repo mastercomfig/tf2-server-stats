@@ -82,7 +82,8 @@ def get_value(key: str, *, default: TableType = None, table) -> TableType:
     res = table.get(Store.k == key)
     if res:
         return res["v"]
-    set_value(key, default, table=table)
+    if default is not None:
+        set_value(key, default, table=table)
     return default
 
 
@@ -358,7 +359,10 @@ async def query_runner(
                         continue
                     players += num_players
                     bots = server["bots"]
-                    score = get_value(steamid, default=0, table=rep_table) + 6
+                    rep = get_value(steamid, table=rep_table)
+                    if rep is None:
+                        rep = 0
+                    score = rep + 6
                     score += score_server(num_players, bots, max_players)
                     if score < 0.1:
                         continue
