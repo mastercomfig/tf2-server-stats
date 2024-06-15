@@ -213,7 +213,6 @@ async def query_runner(
     api_session: aiohttp.ClientSession, cdn_session: aiohttp.ClientSession
 ):
     server_params = {"key": STEAM_API_KEY, "limit": QUERY_LIMIT, "filter": QUERY_FILTER}
-    all_maps: set[str] = set()
     gamemodes: dict[str, set[str]] = {}
     map_gamemode: dict[str, str] = {}
     banned_ips = set(get_value("ips", default=[], table=ban_table))
@@ -224,7 +223,7 @@ async def query_runner(
     try:
         if items_game:
             if updated:
-                all_maps = set()
+                map_gamemode = {}
                 gamemodes = {}
                 with open("items_game.json", "w") as fp:
                     fp.write(str(items_game.items()))
