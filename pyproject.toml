@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "tf2-server-stats"
+version = "0.1.0"
+description = "Collecting data for TF2 server stats"
+authors = ["mastercoms <mastercoms@tuta.io>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-a2s = "^1.3.0"
+aiohttp = "^3.9.5"
+vdf = "^3.4"
+tinydb = "^4.8.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
