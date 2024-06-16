@@ -49,7 +49,7 @@ CONTINENTS = {
     7: set(["AF"]),
 }
 
-DEBUG = True
+DEBUG = False
 
 OVERVIEW_INTERVAL = 300
 
