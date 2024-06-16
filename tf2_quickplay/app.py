@@ -566,8 +566,6 @@ async def query_runner(
                     )
                     new_servers = [server for server in server_infos if server]
                     new_servers.sort(key=get_score, reverse=True)
-                    with open("servers.json", "w") as fp:
-                        json.dump(new_servers, fp)
                     async with comfig_session.post(
                         "/api/quickplay/update",
                         headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
