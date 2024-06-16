@@ -49,7 +49,7 @@ CONTINENTS = {
     7: set(["AF"]),
 }
 
-DEBUG = False
+DEBUG = os.getenv("QUICKPLAY_DEBUG") is not None
 
 OVERVIEW_INTERVAL = 300
 
@@ -226,14 +226,14 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
         return -100.0
 
     if new_humans == 1:
-        return 0.0
+        return -0.3
 
     count_low = max_players // 3
-    count_ideal = max_players * 5 // 6
+    count_ideal = (max_players * 5) // 6
 
     score_low = 0.1
     score_ideal = 1.5
-    score_fuller = 0.3
+    score_fuller = 0.5
 
     if new_humans <= count_low:
         return lerp(0, count_low, 0.0, score_low, new_humans)
