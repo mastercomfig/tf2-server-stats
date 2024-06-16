@@ -231,15 +231,16 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
     count_low = max_players // 3
     count_ideal = max_players * 5 // 6
 
-    score_low = 0.2
+    score_low = 0.1
     score_ideal = 1.5
+    score_fuller = 0.3
 
     if new_humans <= count_low:
         return lerp(0, count_low, 0.0, score_low, new_humans)
     elif new_humans <= count_ideal:
         return lerp(count_low, count_ideal, score_low, score_ideal, new_humans)
     else:
-        return lerp(count_ideal, max_players, score_ideal, score_low, new_humans)
+        return lerp(count_ideal, max_players, score_ideal, score_fuller, new_humans)
 
 
 async def query_runner(
@@ -384,7 +385,13 @@ async def query_runner(
                         if max_players < MIN_PLAYER_CAP:
                             # not enough max_players
                             if DEBUG:
-                                return {"score": -999, "removal": "<18"}
+                                return {
+                                    "score": -999,
+                                    "removal": "<18",
+                                    "map": server["map"],
+                                    "players": server["players"],
+                                    "name": server["name"],
+                                }
                             else:
                                 return None
                         if max_players > MAX_PLAYER_CAP:
@@ -402,14 +409,14 @@ async def query_runner(
                                 return None
                         # check if out of date
                         if int(server["version"]) < server_version:
-                            if DEBUG:
+                            if DEBUG and False:
                                 return {"score": -999, "removal": "outofdate"}
                             else:
                                 return None
                         # check if it's a casual map
                         map = server["map"]
                         if map not in map_gamemode:
-                            if DEBUG:
+                            if DEBUG and False:
                                 return {"score": -999, "removal": "badmap", "map": map}
                             else:
                                 return None
@@ -430,12 +437,24 @@ async def query_runner(
                         # is lying about max players?
                         if max_players > 24 and "increased_maxplayers" not in gametype:
                             if DEBUG:
-                                return {"score": -999, "removal": "-maxplayers"}
+                                return {
+                                    "score": -999,
+                                    "removal": "-maxplayers",
+                                    "map": server["map"],
+                                    "players": server["players"],
+                                    "name": server["name"],
+                                }
                             else:
                                 return None
                         if max_players <= 24 and "increased_maxplayers" in gametype:
                             if DEBUG:
-                                return {"score": -999, "removal": "+maxplayers"}
+                                return {
+                                    "score": -999,
+                                    "removal": "+maxplayers",
+                                    "map": server["map"],
+                                    "players": server["players"],
+                                    "name": server["name"],
+                                }
                             else:
                                 return None
                         # is it any of the gamemodes we want?
@@ -449,6 +468,8 @@ async def query_runner(
                                     "removal": "nogametype",
                                     "gametype": list(gametype),
                                     "name": server["name"],
+                                    "map": server["map"],
+                                    "players": server["players"],
                                 }
                             else:
                                 return None
@@ -462,6 +483,8 @@ async def query_runner(
                                     "map": map,
                                     "expected": expected_gamemode,
                                     "gametype": list(gametype),
+                                    "players": server["players"],
+                                    "name": server["name"],
                                 }
                             else:
                                 return None
@@ -471,7 +494,14 @@ async def query_runner(
                         )
                         if not found_valid_gametype:
                             if DEBUG:
-                                return {"score": -999, "removal": "badgametype"}
+                                return {
+                                    "score": -999,
+                                    "removal": "badgametype",
+                                    "gametype": list(gametype),
+                                    "map": server["map"],
+                                    "players": server["players"],
+                                    "name": server["name"],
+                                }
                             else:
                                 return None
                         # check for name errors
@@ -483,7 +513,13 @@ async def query_runner(
                                 bad_name = True
                         if bad_name:
                             if DEBUG:
-                                return {"score": -999, "removal": "badname"}
+                                return {
+                                    "score": -999,
+                                    "removal": "badname",
+                                    "map": server["map"],
+                                    "players": server["players"],
+                                    "name": server["name"],
+                                }
                             else:
                                 return None
                         bots = server["bots"]
@@ -508,7 +544,13 @@ async def query_runner(
                             server_query = await a2s.ainfo((ip, port))
                         except:
                             if DEBUG:
-                                return {"score": 0, "removal": "timeout"}
+                                return {
+                                    "score": 0,
+                                    "removal": "timeout",
+                                    "map": server["map"],
+                                    "players": server["players"],
+                                    "name": server["name"],
+                                }
                             else:
                                 return None
                         if server_query.password_protected:
@@ -523,6 +565,7 @@ async def query_runner(
                                     "removal": "incorrectgame",
                                     "name": name,
                                     "game": server_query.game,
+                                    "players": server["players"],
                                 }
                             else:
                                 return None
@@ -569,12 +612,13 @@ async def query_runner(
                     new_servers.sort(key=get_score, reverse=True)
                     with open("servers.json", "w") as fp:
                         json.dump(new_servers, fp)
-                    async with comfig_session.post(
-                        "/api/quickplay/update",
-                        headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
-                        json={"servers": new_servers},
-                    ) as api_resp:
-                        print(await api_resp.text())
+                    if not DEBUG:
+                        async with comfig_session.post(
+                            "/api/quickplay/update",
+                            headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
+                            json={"servers": new_servers},
+                        ) as api_resp:
+                            print(await api_resp.text())
                     print(len(new_servers))
         except Exception:
             traceback.print_exc()
