@@ -232,7 +232,7 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
     count_ideal = (max_players * 5) // 6
 
     score_low = 0.1
-    score_ideal = 1.5
+    score_ideal = 3.0
     score_fuller = 0.5
 
     if new_humans <= count_low:
