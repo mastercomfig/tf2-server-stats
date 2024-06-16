@@ -527,7 +527,8 @@ async def query_runner(
                             else:
                                 return None
                         # shift the scores around a little bit so we get some variance in sorting
-                        score = shuffle(score, pct=0.008)
+                        if score == 6.025:
+                            score = shuffle(score, pct=0.008)
                         # calculate ping score
                         ping = server_query.ping * 1000
                         city = geoip.city(ip)
@@ -566,6 +567,8 @@ async def query_runner(
                     )
                     new_servers = [server for server in server_infos if server]
                     new_servers.sort(key=get_score, reverse=True)
+                    with open("servers.json", "w") as fp:
+                        json.dump(new_servers, fp)
                     async with comfig_session.post(
                         "/api/quickplay/update",
                         headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
