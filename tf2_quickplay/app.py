@@ -327,7 +327,7 @@ async def query_runner(
                                 gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
-                    if DEBUG:
+                    if not DEBUG:
                         async with comfig_session.post(
                             "/api/schema/update",
                             headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
