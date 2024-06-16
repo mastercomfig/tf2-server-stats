@@ -49,7 +49,7 @@ CONTINENTS = {
     7: set(["AF"]),
 }
 
-DEBUG = False
+DEBUG = True
 
 OVERVIEW_INTERVAL = 300
 
@@ -226,7 +226,7 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
         return -100.0
 
     if new_humans == 1:
-        return 0.025
+        return 0.0
 
     count_low = max_players // 3
     count_ideal = max_players * 5 // 6
