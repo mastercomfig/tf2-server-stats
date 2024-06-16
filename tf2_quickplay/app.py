@@ -320,6 +320,17 @@ async def query_runner(
                             gamemodes[mm_type] = gamemode_maps
                     else:
                         gamemodes[gamemode] = gamemode_maps
+                async with comfig_session.post(
+                    "/api/schema/update",
+                    headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
+                    json={
+                        "schema": {
+                            "map_gamemodes": map_gamemode,
+                            "gamemodes": {k: list(v) for k, v in gamemodes.items()},
+                        }
+                    },
+                ) as api_resp:
+                    print(await api_resp.text())
             async with api_session.get(
                 "/IGameServersService/GetServerList/v1/",
                 params=server_params,
