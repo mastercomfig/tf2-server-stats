@@ -586,7 +586,7 @@ async def query_runner(
                         # aso = asn.autonomous_system_organization
                         # TODO: do something with malicious ASN usage for fake pings
                         dist = geopy.distance.distance(my_point, point).km
-                        ideal = dist / 125
+                        ideal = dist / 60
                         overhead = max(ping - ideal - 2, 1)
                         return {
                             "addr": addr,
