@@ -226,14 +226,14 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
         return -100.0
 
     if new_humans == 1:
-        return -0.3
+        return -0.2
 
     count_low = max_players // 3
     count_ideal = (max_players * 5) // 6
 
     score_low = 0.1
-    score_ideal = 1.8
-    score_fuller = 0.5
+    score_ideal = 1.6
+    score_fuller = 0.2
 
     if new_humans <= count_low:
         return lerp(0, count_low, 0.0, score_low, new_humans)
@@ -327,17 +327,20 @@ async def query_runner(
                                 gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
-                    async with comfig_session.post(
-                        "/api/schema/update",
-                        headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
-                        json={
-                            "schema": {
-                                "map_gamemodes": map_gamemode,
-                                "gamemodes": {k: list(v) for k, v in gamemodes.items()},
-                            }
-                        },
-                    ) as api_resp:
-                        print(await api_resp.text())
+                    if DEBUG:
+                        async with comfig_session.post(
+                            "/api/schema/update",
+                            headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
+                            json={
+                                "schema": {
+                                    "map_gamemodes": map_gamemode,
+                                    "gamemodes": {
+                                        k: list(v) for k, v in gamemodes.items()
+                                    },
+                                }
+                            },
+                        ) as api_resp:
+                            print(await api_resp.text())
                 async with api_session.get(
                     "/IGameServersService/GetServerList/v1/",
                     params=server_params,
@@ -361,7 +364,13 @@ async def query_runner(
                         steamid = server["steamid"]
                         if not steamid:
                             if DEBUG:
-                                return {"score": -999, "removal": "nosteam"}
+                                return {
+                                    "score": -999,
+                                    "removal": "nosteam",
+                                    "name": server["name"],
+                                    "map": server.get("map"),
+                                    "players": server["players"],
+                                }
                             else:
                                 return None
                         # not tf, leave
@@ -390,6 +399,7 @@ async def query_runner(
                                     "removal": "<18",
                                     "map": server["map"],
                                     "players": server["players"],
+                                    "max_players": server["max_players"],
                                     "name": server["name"],
                                 }
                             else:
@@ -442,6 +452,7 @@ async def query_runner(
                                     "removal": "-maxplayers",
                                     "map": server["map"],
                                     "players": server["players"],
+                                    "max_players": server["max_players"],
                                     "name": server["name"],
                                 }
                             else:
@@ -453,6 +464,7 @@ async def query_runner(
                                     "removal": "+maxplayers",
                                     "map": server["map"],
                                     "players": server["players"],
+                                    "max_players": server["max_players"],
                                     "name": server["name"],
                                 }
                             else:
