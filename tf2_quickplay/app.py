@@ -25,6 +25,10 @@ STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 if not STEAM_API_KEY:
     print("Need to pass in STEAM_API_KEY")
     sys.exit(1)
+COMFIG_API_URL = os.getenv("COMFIG_API_URL")
+if not COMFIG_API_URL:
+    print("Need to pass in COMFIG_API_URL")
+    sys.exit(1)
 COMFIG_API_KEY = os.getenv("COMFIG_API_KEY")
 if not COMFIG_API_KEY:
     print("Need to pass in COMFIG_API_KEY")
@@ -673,7 +677,7 @@ async def main():
             ) as api_session:
                 async with aiohttp.ClientSession(base_url=CDN_BASE_URL) as cdn_session:
                     async with aiohttp.ClientSession(
-                        base_url="https://worker.comfig.app",
+                        base_url=COMFIG_API_URL,
                         json_serialize=ujson.dumps,
                     ) as comfig_session:
                         await query_runner(
