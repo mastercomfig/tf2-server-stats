@@ -570,7 +570,7 @@ async def query_runner(
                                 return {"score": 0, "removal": "pass"}
                             else:
                                 return None
-                        if server_query.game != APP_FULL_NAME:
+                        if False and APP_FULL_NAME not in server_query.game:
                             if DEBUG:
                                 return {
                                     "score": -999,
@@ -598,7 +598,7 @@ async def query_runner(
                         # aso = asn.autonomous_system_organization
                         # TODO: do something with malicious ASN usage for fake pings
                         dist = geopy.distance.distance(my_point, point).km
-                        ideal = dist / 60
+                        ideal = dist / 90
                         overhead = max(ping - ideal - 2, 1)
                         return {
                             "addr": addr,
