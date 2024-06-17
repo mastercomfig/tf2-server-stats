@@ -619,6 +619,7 @@ async def query_runner(
                             .replace("\t", "")
                             .encode("raw_unicode_escape")
                             .decode("unicode_escape")
+                            .strip()
                         )
                         return {
                             "addr": addr,
