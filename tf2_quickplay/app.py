@@ -17,6 +17,7 @@ import aiohttp
 import geoip2
 import geoip2.database
 import geopy.distance
+import orjson
 import tinydb
 import ujson
 import vdf
@@ -358,7 +359,9 @@ async def query_runner(
                     "/IGameServersService/GetServerList/v1/",
                     params=server_params,
                 ) as resp:
-                    body = await resp.json(encoding="utf-8")
+                    body = await resp.read()
+                    body = body.decode("utf-8", errors="replace")
+                    body = orjson.loads(body)
                     pending_servers = body["response"]["servers"]
 
                     async def calc_server(server):
