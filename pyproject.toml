@@ -16,6 +16,7 @@ geoip2 = "^4.8.0"
 geopy = "^2.4.1"
 ujson = "^5.10.0"
 brotli = "^1.1.0"
+python-dotenv = "^1.0.1"
 
 
 [build-system]

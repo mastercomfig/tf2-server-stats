@@ -20,6 +20,9 @@ import geopy.distance
 import tinydb
 import ujson
 import vdf
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 if not STEAM_API_KEY:
@@ -37,7 +40,7 @@ GEOIP_KEY = os.getenv("GEOIP_KEY")
 if not GEOIP_KEY:
     print("Need to pass in GEOIP_KEY")
     sys.exit(1)
-STEAM_API_PARAM = {"key": STEAM_API_KEY}
+STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
 QUERY_INTERVAL = 60
 QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\full\1\ngametype\hidden,friendlyfire,highlander,noquickplay,trade,dmgspread,mvm,pve\steamblocking\1\nor\1\white\1"
 QUERY_LIMIT = "20000"
@@ -54,6 +57,7 @@ CONTINENTS = {
 }
 
 DEBUG = os.getenv("QUICKPLAY_DEBUG") is not None
+DEBUG_SKIP_SERVERS = os.getenv("QUICKPLAY_DEBUG_SKIP_SERVERS") is not None
 
 OVERVIEW_INTERVAL = 300
 
@@ -180,7 +184,7 @@ async def req_items_game(
         async with api_session.get(
             "/IEconItems_440/GetSchemaOverview/v1/", params=STEAM_API_PARAM
         ) as resp:
-            body = await resp.json(encoding="latin-1")
+            body = await resp.json(encoding="utf-8")
             new_overview_resp: str | None = body.get("result", EMPTY_DICT).get(
                 "items_game_url"
             )
@@ -194,7 +198,7 @@ async def req_items_game(
                 if new_overview_resp != last_overview_resp:
                     last_overview_resp = new_overview_resp
                     async with cdn_session.get(last_overview_resp) as items_game_resp:
-                        items_game_body = await items_game_resp.text(encoding="latin-1")
+                        items_game_body = await items_game_resp.text(encoding="utf-8")
                         updated = True
                         last_items_game_resp = vdf.loads(
                             items_game_body, mapper=vdf.VDFDict
@@ -202,7 +206,7 @@ async def req_items_game(
         async with api_session.get(
             "/IGCVersion_440/GetServerVersion/v1/", params=STEAM_API_PARAM
         ) as resp:
-            body = await resp.json(encoding="latin-1")
+            body = await resp.json(encoding="utf-8")
             server_version = body.get("result", EMPTY_DICT).get("min_allowed_version")
             if server_version:
                 last_server_version = server_version
@@ -254,7 +258,12 @@ async def query_runner(
     cdn_session: aiohttp.ClientSession,
     comfig_session: aiohttp.ClientSession,
 ):
-    server_params = {"key": STEAM_API_KEY, "limit": QUERY_LIMIT, "filter": QUERY_FILTER}
+    server_params = {
+        "key": STEAM_API_KEY,
+        "format": "json",
+        "limit": QUERY_LIMIT,
+        "filter": QUERY_FILTER,
+    }
     gamemodes: dict[str, set[str]] = {}
     map_gamemode: dict[str, str] = {}
     banned_ips = set(get_value("ips", default=[], table=ban_table))
@@ -349,14 +358,14 @@ async def query_runner(
                     "/IGameServersService/GetServerList/v1/",
                     params=server_params,
                 ) as resp:
-                    body = await resp.json(encoding="latin-1")
+                    body = await resp.json(encoding="utf-8")
                     pending_servers = body["response"]["servers"]
 
                     async def calc_server(server):
                         addr = server["addr"]
                         # skip servers with SDR
                         if addr.startswith("169.254"):
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "sdr",
@@ -367,7 +376,7 @@ async def query_runner(
                         # check for steam ID
                         steamid = server["steamid"]
                         if not steamid:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "nosteam",
@@ -379,17 +388,17 @@ async def query_runner(
                                 return None
                         # not tf, leave
                         if server["appid"] != APP_ID:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": "noappid"}
                             else:
                                 return None
                         if server["gamedir"] != APP_NAME:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": "nogamedir"}
                             else:
                                 return None
                         if server["product"] != APP_NAME:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": "noprod"}
                             else:
                                 return None
@@ -397,7 +406,7 @@ async def query_runner(
                         max_players = server["max_players"]
                         if max_players < MIN_PLAYER_CAP:
                             # not enough max_players
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "<18",
@@ -410,39 +419,39 @@ async def query_runner(
                                 return None
                         if max_players > MAX_PLAYER_CAP:
                             # too much max_players
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": ">101"}
                             else:
                                 return None
                         num_players = server["players"]
                         if num_players >= max_players:
                             # lying about players
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": "playercaplie"}
                             else:
                                 return None
                         # check if out of date
                         if int(server["version"]) < server_version:
-                            if DEBUG and False:
+                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
                                 return {"score": -999, "removal": "outofdate"}
                             else:
                                 return None
                         # check if it's a casual map
                         map = server["map"]
                         if map not in map_gamemode:
-                            if DEBUG and False:
+                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
                                 return {"score": -999, "removal": "badmap", "map": map}
                             else:
                                 return None
                         # check for ban
                         if server["steamid"] in banned_ids:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": "steamban"}
                             else:
                                 return None
                         ip, port = addr.split(":")
                         if ip in banned_ips:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": -999, "removal": "ipban"}
                             else:
                                 return None
@@ -450,7 +459,7 @@ async def query_runner(
                         gametype = set(server["gametype"].lower().split(","))
                         # is lying about max players?
                         if max_players > 24 and "increased_maxplayers" not in gametype:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "-maxplayers",
@@ -462,7 +471,7 @@ async def query_runner(
                             else:
                                 return None
                         if max_players <= 24 and "increased_maxplayers" in gametype:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "+maxplayers",
@@ -478,7 +487,7 @@ async def query_runner(
                             len(gametype.intersection(ANY_VALID_TAGS)) > 0
                         )
                         if not found_valid_gametype:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "nogametype",
@@ -492,7 +501,7 @@ async def query_runner(
                         # is it the gamemode we want?
                         expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
                         if expected_gamemode and expected_gamemode not in gametype:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "unexpectedtag",
@@ -509,7 +518,7 @@ async def query_runner(
                             len(gametype.intersection(banned_tags)) < 1
                         )
                         if not found_valid_gametype:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "badgametype",
@@ -528,7 +537,7 @@ async def query_runner(
                             if invalid in lower_name:
                                 bad_name = True
                         if bad_name:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "badname",
@@ -545,7 +554,7 @@ async def query_runner(
                         score = rep + 6
                         score += score_server(num_players, bots, max_players)
                         if score < 0.1:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "lowscore",
@@ -559,7 +568,7 @@ async def query_runner(
                         try:
                             server_query = await a2s.ainfo((ip, port))
                         except:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": 0,
                                     "removal": "timeout",
@@ -570,12 +579,12 @@ async def query_runner(
                             else:
                                 return None
                         if server_query.password_protected:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {"score": 0, "removal": "pass"}
                             else:
                                 return None
                         if False and APP_FULL_NAME not in server_query.game:
-                            if DEBUG:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
                                     "removal": "incorrectgame",
@@ -604,6 +613,13 @@ async def query_runner(
                         dist = geopy.distance.distance(my_point, point).km
                         ideal = dist / 90
                         overhead = max(ping - ideal - 2, 1)
+                        # strip attention seeking characters
+                        name = (
+                            name.replace("\u0001", "")
+                            .replace("\t", "")
+                            .encode("raw_unicode_escape")
+                            .decode("unicode_escape")
+                        )
                         return {
                             "addr": addr,
                             "steamid": steamid,
@@ -626,8 +642,8 @@ async def query_runner(
                     )
                     new_servers = [server for server in server_infos if server]
                     new_servers.sort(key=get_score, reverse=True)
-                    with open("servers.json", "w") as fp:
-                        json.dump(new_servers, fp)
+                    with open("servers.json", "w", encoding="utf-8") as fp:
+                        json.dump(new_servers, fp, ensure_ascii=False)
                     if not DEBUG:
                         async with comfig_session.post(
                             "/api/quickplay/update",
