@@ -950,9 +950,11 @@ async def main():
     with geoip2.database.Reader(geoAsnDb) as geoasn:
         with geoip2.database.Reader(geoipDb) as geoip:
             async with aiohttp.ClientSession(
-                base_url="https://api.steampowered.com"
+                base_url="https://api.steampowered.com", raise_for_status=True
             ) as api_session:
-                async with aiohttp.ClientSession(base_url=CDN_BASE_URL) as cdn_session:
+                async with aiohttp.ClientSession(
+                    base_url=CDN_BASE_URL, raise_for_status=True
+                ) as cdn_session:
                     async with aiohttp.ClientSession(
                         base_url=COMFIG_API_URL,
                         json_serialize=ujson.dumps,
