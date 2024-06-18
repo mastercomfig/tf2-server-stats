@@ -43,7 +43,7 @@ if not GEOIP_KEY:
     print("Need to pass in GEOIP_KEY")
     sys.exit(1)
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
-QUERY_INTERVAL = 60
+QUERY_INTERVAL = 30
 QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\full\1\ngametype\hidden,friendlyfire,highlander,noquickplay,trade,dmgspread,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
 QUERY_LIMIT = "20000"
 
@@ -873,7 +873,7 @@ async def query_runner(
             traceback.print_exc()
 
         print("Sleeping...")
-        await asyncio.sleep(QUERY_INTERVAL + chaos(0.1))
+        await asyncio.sleep(QUERY_INTERVAL + chaos(30))
         print("Continuing...")
 
 
