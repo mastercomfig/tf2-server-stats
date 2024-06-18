@@ -147,7 +147,6 @@ BASE_GAME_MAPS = {
     "pd_galleria": "alternative",
     "arena_perks": "arena",
     # community maps
-    "cp_glassworks_rc7a": "capture_point",
     "cp_stoneyridge_rc2 ": "capture_point",
     "cp_ambush_rc5": "attack_defense",
     "pl_coal_rc23": "payload",
