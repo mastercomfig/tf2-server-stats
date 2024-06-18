@@ -124,8 +124,10 @@ ANY_VALID_TAGS = set(
 
 # these aren't in the GC (or are holiday only), but we still want them.
 BASE_GAME_MAPS = {
+    # beta maps
     "rd_asteroid": "alternative",
     "pl_cactuscanyon": "payload",
+    # holiday maps
     "ctf_doublecross_snowy": "ctf",
     "ctf_haarp": "ctf",
     "ctf_frosty": "ctf",
@@ -143,9 +145,28 @@ BASE_GAME_MAPS = {
     "koth_snowtower": "koth",
     "pd_snowville_event": "alternative",
     "pd_galleria": "alternative",
+    "arena_perks": "arena",
+    # community maps
+    "cp_glassworks_rc7a": "capture_point",
+    "cp_stoneyridge_rc2 ": "capture_point",
+    "cp_ambush_rc5": "attack_defense",
+    "pl_coal_rc23": "payload",
+    "pl_fifthcurve_rc1": "payload",
+    "pl_millstone_v4": "payload",
+    "pl_rumble_rc1": "payload",
+    "pl_sludgepit_final4": "payload",
+    "pl_vineyard_rc8b": "payload",
+    "koth_bagel_rc8": "koth",
+    "koth_brine_rc3a": "koth",
+    "koth_moonshine": "koth",
+    "koth_slaughter_rc1": "koth",
+    "koth_synthetic_rc6a": "koth",
+    "koth_undergrove_rc1": "koth",
 }
 
 BETA_MAPS = set(["rd_asteroid", "pl_cactuscanyon"])
+
+DEFAULT_MAP_PREFIXES = set(["koth", "ctf", "cp", "tc", "pl", "plr", "sd", "pd"])
 
 TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
@@ -550,6 +571,25 @@ async def query_runner(
                                     return {
                                         "score": -999,
                                         "removal": "holidaymap",
+                                        "addr": addr,
+                                        "steamid": steamid,
+                                        "name": server["name"],
+                                        "players": server["players"],
+                                        "max_players": server["max_players"],
+                                        "bots": server["bots"],
+                                        "map": map,
+                                        "gametype": server.get("gametype", "")
+                                        .lower()
+                                        .split(","),
+                                    }
+                                prefix = map.split("_")[0]
+                                if (
+                                    prefix in DEFAULT_MAP_PREFIXES
+                                    and not map.startswith("cp_orange")
+                                ):
+                                    return {
+                                        "score": -999,
+                                        "removal": "custommap",
                                         "addr": addr,
                                         "steamid": steamid,
                                         "name": server["name"],
