@@ -78,6 +78,7 @@ SERVER_HEADROOM = 1
 DB = tinydb.TinyDB(Path("./db.json"))
 rep_table = DB.table("rep")
 ban_table = DB.table("bans")
+geo_table = DB.table("geo")
 
 HOLIDAYS = {"christmas": 12, "halloween": 10}
 
@@ -146,7 +147,7 @@ BASE_GAME_MAPS = {
     "pd_snowville_event": "alternative",
     "pd_galleria": "alternative",
     "arena_perks": "arena",
-    # community maps
+    # community map variants
     "cp_stoneyridge_rc2 ": "capture_point",
     "cp_ambush_rc5": "attack_defense",
     "pl_coal_rc23": "payload",
@@ -156,7 +157,7 @@ BASE_GAME_MAPS = {
     "pl_rumble_rc1": "payload",
     "pl_sludgepit_final4": "payload",
     "pl_vineyard_rc8b": "payload",
-    "koth_bagel_rc8": "koth",
+    "koth_bagel_rc9b": "koth",
     "koth_brine_rc3a": "koth",
     "koth_maple_ridge_rc2": "koth",
     "koth_megasnow_rc1": "koth",
@@ -164,6 +165,42 @@ BASE_GAME_MAPS = {
     "koth_slaughter_rc1": "koth",
     "koth_synthetic_rc6a": "koth",
     "koth_undergrove_rc1": "koth",
+    # popular community maps
+    # this is an investigation to improve server pop
+    "cp_glassworks_rc7a": "capture_point",
+    "cp_mist_rc1e": "capture_point",
+    "cp_overgrown_rc8": "capture_point",
+    "cp_propaganda_b19": "capture_point",
+    "cp_logjam_rc12": "capture_point",
+    "cp_hazyfort_rc6": "capture_point",
+    "pl_stallberg_rc3": "payload",
+    "pl_vigil_rc10": "payload",
+    "pl_oasis_rc3": "payload",
+    "pl_rocksalt_v7": "payload",
+    "pl_shoreleave_rc2": "payload",
+    "pl_barnblitz_pro7": "payload",
+    "pl_prowater_b12": "payload",
+    "pl_badwater_pro_v12": "payload",
+    "pl_kinder_b17": "payload",
+    "pl_summercoast_rc8e": "payload",
+    "pl_outback_rc4": "payload",
+    "pl_cactuscanyon_redux_final2": "payload",
+    "pl_extinction_rc3": "payload",
+    "pl_patagonia_rc1b": "payload",
+    "plr_tdm_hightower_rc1": "payload_race",
+    "koth_hangar_rc5b": "koth",
+    "koth_soot_final1": "koth",
+    "koth_product_final": "koth",
+    "koth_clearcut_b15d": "koth",
+    "koth_ashville_final1": "koth",
+    "pd_salvador_b2": "alternative",
+    # refresh.tf, used a lot on Asia servers
+    "pl_upward_f12": "payload",
+    "pl_borneo_f2": "payload",
+    "cp_process_f12": "capture_point",
+    "cp_metalworks_f5": "capture_point",
+    "cp_gullywash_f9": "capture_point",
+    "koth_warmtic_f10": "koth",
 }
 
 BETA_MAPS = set(["rd_asteroid", "pl_cactuscanyon"])
@@ -549,7 +586,8 @@ async def query_runner(
                             return None
                         if map not in map_gamemode:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
-                                if map_gamemode.get(map) == "arena":
+                                prefix = map.split("_")[0]
+                                if prefix == "arena":
                                     return {
                                         "score": -999,
                                         "removal": "arenamap",
@@ -584,7 +622,6 @@ async def query_runner(
                                         .lower()
                                         .split(","),
                                     }
-                                prefix = map.split("_")[0]
                                 if (
                                     prefix in DEFAULT_MAP_PREFIXES
                                     and not map.startswith("cp_orange")
@@ -855,21 +892,28 @@ async def query_runner(
                             else:
                                 return None
                         # shift the scores around a little bit so we get some variance in sorting
-                        if score == 6.025:
+                        if score <= 6.025:
                             score = shuffle(score, pct=0.0005)
                         # calculate ping score
                         ping = server_query.ping * 1000
-                        city = geoip.city(ip)
-                        country = city.country.iso_code
-                        continent = city.continent.code
-                        server_region = server["region"]
+                        geo_override = get_value(ip, table=geo_table)
+                        if geo_override:
+                            country = geo_override["country"]
+                            continent = geo_override["continent"]
+                            lon = geo_override["lon"]
+                            lat = geo_override["lat"]
+                        else:
+                            city = geoip.city(ip)
+                            country = city.country.iso_code
+                            continent = city.continent.code
+                            lon = city.location.longitude
+                            lat = city.location.latitude
                         # TODO: do something with non-matching regions
-                        lon = city.location.longitude
-                        lat = city.location.latitude
+                        server_region = server["region"]
                         point = (lat, lon)
+                        # TODO: do something with malicious ASN usage for fake pings
                         # asn = geoasn.asn(ip)
                         # aso = asn.autonomous_system_organization
-                        # TODO: do something with malicious ASN usage for fake pings
                         dist = geopy.distance.distance(my_point, point).km
                         ideal = dist / 90
                         overhead = max(ping - ideal - 2, 1)
