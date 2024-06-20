@@ -403,6 +403,7 @@ async def query_runner(
     pending_servers = []
     updated_servers = False
     while True:
+        next_query_interval = QUERY_INTERVAL + chaos(30)
         items_game, updated, server_version = await req_items_game(
             api_session, cdn_session
         )
@@ -980,10 +981,13 @@ async def query_runner(
                 with open("servers.json", "w", encoding="utf-8") as fp:
                     json.dump(new_servers, fp, ensure_ascii=False, indent=2)
                 if not DEBUG:
+                    until = (
+                        utcnow() + datetime.timedelta(seconds=next_query_interval + 1)
+                    ).timestamp()
                     async with comfig_session.post(
                         "/api/quickplay/update",
                         headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
-                        json={"servers": new_servers},
+                        json={"servers": new_servers, "until": until},
                     ) as api_resp:
                         print(await api_resp.text())
                 print(len(new_servers))
@@ -991,7 +995,7 @@ async def query_runner(
             traceback.print_exc()
 
         print("Sleeping...")
-        await asyncio.sleep(QUERY_INTERVAL + chaos(30))
+        await asyncio.sleep(next_query_interval)
         print("Continuing...")
 
 
