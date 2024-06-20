@@ -79,6 +79,7 @@ DB = tinydb.TinyDB(Path("./db.json"))
 rep_table = DB.table("rep")
 ban_table = DB.table("bans")
 geo_table = DB.table("geo")
+anycast_table = DB.table("anycast")
 
 HOLIDAYS = {"christmas": 12, "halloween": 10}
 
@@ -343,6 +344,10 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
     if max_players > FULL_PLAYERS:
         max_players = FULL_PLAYERS
 
+    if new_humans > FULL_PLAYERS:
+        # if it's actually full it'll get caught by the condition below.
+        new_humans = FULL_PLAYERS - 1
+
     if new_total_players + SERVER_HEADROOM > real_max_players:
         return -100.0
 
@@ -384,6 +389,7 @@ async def query_runner(
     banned_ids = set(get_value("ids", default=[], table=ban_table))
     banned_name_search = get_value("names", default=[], table=ban_table)
     banned_tags = set(get_value("tags", default=[], table=ban_table))
+    anycast_ips = set(get_value("ips", default=[], table=anycast_table))
     my_ip = "127.0.0.1"
     async with aiohttp.ClientSession("https://api.ipify.org") as ip_session:
         async with ip_session.get("/?format=json") as resp:
@@ -394,6 +400,8 @@ async def query_runner(
     my_lat = my_city.location.latitude
     my_point = (my_lat, my_lon)
     LAST_MONTH = 0
+    pending_servers = []
+    updated_servers = False
     while True:
         items_game, updated, server_version = await req_items_game(
             api_session, cdn_session
@@ -473,40 +481,46 @@ async def query_runner(
                             },
                         ) as api_resp:
                             print(await api_resp.text())
-                async with api_session.get(
-                    "/IGameServersService/GetServerList/v1/",
-                    params=server_params,
-                ) as resp:
-                    body = await resp.read()
-                    body = body.decode("utf-8", errors="replace")
-                    body = orjson.loads(body)
-                    pending_servers = body["response"]["servers"]
 
-                    async def calc_server(server):
-                        addr = server["addr"]
-                        # skip servers with SDR
-                        if addr.startswith("169.254"):
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "sdr",
-                                    "addr": addr,
-                                    "steamid": server["steamid"],
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": server.get("map"),
-                                    "gametype": server.get("gametype", "")
-                                    .lower()
-                                    .split(","),
-                                }
-                            else:
-                                return None
-                        # check for steam ID
-                        steamid = server["steamid"]
-                        # TODO: steamid.startswith("9") for anonymous
-                        if not steamid:
+                try:
+                    async with api_session.get(
+                        "/IGameServersService/GetServerList/v1/",
+                        params=server_params,
+                    ) as resp:
+                        body = await resp.read()
+                        body = body.decode("utf-8", errors="replace")
+                        body = orjson.loads(body)
+                        pending_servers = body["response"]["servers"]
+                        updated_servers = True
+                except:
+                    traceback.print_exc()
+
+                async def calc_server(server):
+                    addr = server["addr"]
+                    # skip servers with SDR
+                    if addr.startswith("169.254"):
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "sdr",
+                                "addr": addr,
+                                "steamid": server["steamid"],
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": server.get("map"),
+                                "gametype": server.get("gametype", "")
+                                .lower()
+                                .split(","),
+                            }
+                        else:
+                            return None
+                    quickplay_bonus = 6
+                    # check for steam ID
+                    steamid = server["steamid"]
+                    if steamid[0] == "9":
+                        if False:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
@@ -524,163 +538,97 @@ async def query_runner(
                                 }
                             else:
                                 return None
-                        # not tf, leave
-                        if server["appid"] != APP_ID:
-                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
-                                return {"score": -999, "removal": "noappid"}
-                            else:
-                                return None
-                        if server["gamedir"] != APP_NAME:
-                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
-                                return {"score": -999, "removal": "nogamedir"}
-                            else:
-                                return None
-                        if server["product"] != APP_NAME:
-                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
-                                return {"score": -999, "removal": "noprod"}
-                            else:
-                                return None
-                        # check max players
-                        max_players = server["max_players"]
-                        if max_players < MIN_PLAYER_CAP:
-                            # not enough max_players
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "<18",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": server.get("map"),
-                                    "gametype": server.get("gametype", "")
-                                    .lower()
-                                    .split(","),
-                                }
-                            else:
-                                return None
-                        if max_players > MAX_PLAYER_CAP:
-                            # too much max_players
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {"score": -999, "removal": ">101"}
-                            else:
-                                return None
-                        num_players = server["players"]
-                        if num_players >= max_players:
-                            # lying about players
-                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
-                                return {"score": -999, "removal": "playercaplie"}
-                            else:
-                                return None
-                        # check if out of date
-                        if int(server["version"]) < server_version:
-                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
-                                return {"score": -999, "removal": "outofdate"}
-                            else:
-                                return None
-                        # check if it's a casual map
-                        map = server.get("map")
-                        if not map:
-                            return None
-                        if map not in map_gamemode:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                prefix = map.split("_")[0]
-                                if prefix == "arena":
-                                    return {
-                                        "score": -999,
-                                        "removal": "arenamap",
-                                        "addr": addr,
-                                        "steamid": steamid,
-                                        "name": server["name"],
-                                        "players": server["players"],
-                                        "max_players": server["max_players"],
-                                        "bots": server["bots"],
-                                        "map": map,
-                                        "gametype": server.get("gametype", "")
-                                        .lower()
-                                        .split(","),
-                                    }
-                                holiday = False
-                                for map_lookup in holiday_map_gamemode.values():
-                                    if map in map_lookup:
-                                        holiday = True
-                                        break
-                                if holiday:
-                                    return {
-                                        "score": -999,
-                                        "removal": "holidaymap",
-                                        "addr": addr,
-                                        "steamid": steamid,
-                                        "name": server["name"],
-                                        "players": server["players"],
-                                        "max_players": server["max_players"],
-                                        "bots": server["bots"],
-                                        "map": map,
-                                        "gametype": server.get("gametype", "")
-                                        .lower()
-                                        .split(","),
-                                    }
-                                if (
-                                    prefix in DEFAULT_MAP_PREFIXES
-                                    and not map.startswith("cp_orange")
-                                ):
-                                    return {
-                                        "score": -999,
-                                        "removal": "custommap",
-                                        "addr": addr,
-                                        "steamid": steamid,
-                                        "name": server["name"],
-                                        "players": server["players"],
-                                        "max_players": server["max_players"],
-                                        "bots": server["bots"],
-                                        "map": map,
-                                        "gametype": server.get("gametype", "")
-                                        .lower()
-                                        .split(","),
-                                    }
-                                return {
-                                    "score": -999,
-                                    "removal": "badmap",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": server.get("gametype", "")
-                                    .lower()
-                                    .split(","),
-                                }
-                            else:
-                                return None
-                        # check for ban
-                        if server["steamid"] in banned_ids:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "steamban",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": server.get("gametype", "")
-                                    .lower()
-                                    .split(","),
-                                }
-                            else:
-                                return None
+                        else:
+                            quickplay_bonus -= 0.1
+
+                    if not updated_servers:
                         ip, port = addr.split(":")
-                        if ip in banned_ips:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
+                        if True:
+                            try:
+                                server_query = await a2s.ainfo((ip, port))
+                            except:
+                                return None
+                            server["appid"] = server_query.app_id
+                            server["gamedir"] = server_query.folder
+                            server["product"] = server_query.folder
+                            server["players"] = server_query.player_count
+                            server["map"] = server_query.map_name
+                            server["gametype"] = server_query.keywords
+                            server["version"] = server_query.version
+                        else:
+                            server["appid"] = 440
+                            server["gamedir"] = "tf"
+                            server["product"] = "tf"
+                            server["version"] = server_version
+                            server["gametype"] = ",".join(server["gametype"])
+
+                    # not tf, leave
+                    if server["appid"] != APP_ID:
+                        if DEBUG and not DEBUG_SKIP_SERVERS and False:
+                            return {"score": -999, "removal": "noappid"}
+                        else:
+                            return None
+                    if server["gamedir"] != APP_NAME:
+                        if DEBUG and not DEBUG_SKIP_SERVERS and False:
+                            return {"score": -999, "removal": "nogamedir"}
+                        else:
+                            return None
+                    if server["product"] != APP_NAME:
+                        if DEBUG and not DEBUG_SKIP_SERVERS and False:
+                            return {"score": -999, "removal": "noprod"}
+                        else:
+                            return None
+                    # check max players
+                    max_players = server["max_players"]
+                    if max_players < MIN_PLAYER_CAP:
+                        # not enough max_players
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "<18",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": server.get("map"),
+                                "gametype": server.get("gametype", "")
+                                .lower()
+                                .split(","),
+                            }
+                        else:
+                            return None
+                    if max_players > MAX_PLAYER_CAP:
+                        # too much max_players
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {"score": -999, "removal": ">101"}
+                        else:
+                            return None
+                    num_players = server["players"]
+                    if num_players >= max_players:
+                        # lying about players
+                        if DEBUG and not DEBUG_SKIP_SERVERS and False:
+                            return {"score": -999, "removal": "playercaplie"}
+                        else:
+                            return None
+                    # check if out of date
+                    if int(server["version"]) < server_version:
+                        if DEBUG and not DEBUG_SKIP_SERVERS and False:
+                            return {"score": -999, "removal": "outofdate"}
+                        else:
+                            return None
+                    # check if it's a casual map
+                    map = server.get("map")
+                    if not map:
+                        return None
+                    if map not in map_gamemode:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            prefix = map.split("_")[0]
+                            if prefix == "arena":
                                 return {
                                     "score": -999,
-                                    "removal": "ipban",
+                                    "removal": "arenamap",
                                     "addr": addr,
                                     "steamid": steamid,
                                     "name": server["name"],
@@ -692,171 +640,243 @@ async def query_runner(
                                     .lower()
                                     .split(","),
                                 }
-                            else:
-                                return None
-                        # check for gametype
-                        gametype = server.get("gametype")
-                        if not gametype:
+                            holiday = False
+                            for map_lookup in holiday_map_gamemode.values():
+                                if map in map_lookup:
+                                    holiday = True
+                                    break
+                            if holiday:
+                                return {
+                                    "score": -999,
+                                    "removal": "holidaymap",
+                                    "addr": addr,
+                                    "steamid": steamid,
+                                    "name": server["name"],
+                                    "players": server["players"],
+                                    "max_players": server["max_players"],
+                                    "bots": server["bots"],
+                                    "map": map,
+                                    "gametype": server.get("gametype", "")
+                                    .lower()
+                                    .split(","),
+                                }
+                            if prefix in DEFAULT_MAP_PREFIXES and not map.startswith(
+                                "cp_orange"
+                            ):
+                                return {
+                                    "score": -999,
+                                    "removal": "custommap",
+                                    "addr": addr,
+                                    "steamid": steamid,
+                                    "name": server["name"],
+                                    "players": server["players"],
+                                    "max_players": server["max_players"],
+                                    "bots": server["bots"],
+                                    "map": map,
+                                    "gametype": server.get("gametype", "")
+                                    .lower()
+                                    .split(","),
+                                }
+                            return {
+                                "score": -999,
+                                "removal": "badmap",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": server.get("gametype", "")
+                                .lower()
+                                .split(","),
+                            }
+                        else:
                             return None
-                        gametype = set(gametype.lower().split(","))
-                        # is lying about max players?
-                        if max_players > 25 and "increased_maxplayers" not in gametype:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "-maxplayers",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        if max_players <= 24 and "increased_maxplayers" in gametype:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "+maxplayers",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        # is it any of the gamemodes we want?
-                        found_valid_gametype = (
-                            len(gametype.intersection(ANY_VALID_TAGS)) > 0
-                        )
-                        if not found_valid_gametype:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "nogametype",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        # is it the gamemode we want?
-                        expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
-                        if expected_gamemode and expected_gamemode not in gametype:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "unexpectedtag",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        beta_expected = map in BETA_MAPS
-                        if (
-                            beta_expected
-                            and "beta" not in gametype
-                            or not beta_expected
-                            and "beta" in gametype
-                        ):
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "nobeta" if beta_expected else "hasbeta",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        # check for tag errors
-                        found_valid_gametype = (
-                            len(gametype.intersection(banned_tags)) < 1
-                        )
-                        if not found_valid_gametype:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "badgametype",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        # check for name errors
-                        name = server["name"]
-                        lower_name = name.lower()
-                        bad_name = False
-                        for invalid in banned_name_search:
-                            if invalid in lower_name:
-                                bad_name = True
-                        if bad_name:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "badname",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": server["bots"],
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
-                        bots = server["bots"]
-                        rep = get_value(steamid, table=rep_table)
-                        if rep is None:
-                            rep = 0
-                        score = rep + 6
-                        score += score_server(num_players, bots, max_players)
-                        if score < 0.1:
-                            if DEBUG and not DEBUG_SKIP_SERVERS:
-                                return {
-                                    "score": -999,
-                                    "removal": "lowscore",
-                                    "addr": addr,
-                                    "steamid": steamid,
-                                    "name": server["name"],
-                                    "players": server["players"],
-                                    "max_players": server["max_players"],
-                                    "bots": bots,
-                                    "map": map,
-                                    "gametype": list(gametype),
-                                }
-                            else:
-                                return None
+                    # check for ban
+                    if server["steamid"] in banned_ids:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "steamban",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": server.get("gametype", "")
+                                .lower()
+                                .split(","),
+                            }
+                        else:
+                            return None
+                    ip, port = addr.split(":")
+                    if ip in banned_ips:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "ipban",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": server.get("gametype", "")
+                                .lower()
+                                .split(","),
+                            }
+                        else:
+                            return None
+                    # check for gametype
+                    gametype = server.get("gametype")
+                    if not gametype:
+                        return None
+                    gametype = set(gametype.lower().split(","))
+                    # is lying about max players?
+                    if max_players > 25 and "increased_maxplayers" not in gametype:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "-maxplayers",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    if max_players <= 24 and "increased_maxplayers" in gametype:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "+maxplayers",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    # is it any of the gamemodes we want?
+                    found_valid_gametype = (
+                        len(gametype.intersection(ANY_VALID_TAGS)) > 0
+                    )
+                    if not found_valid_gametype:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "nogametype",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    # is it the gamemode we want?
+                    expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
+                    if expected_gamemode and expected_gamemode not in gametype:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "unexpectedtag",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    beta_expected = map in BETA_MAPS
+                    if (
+                        beta_expected
+                        and "beta" not in gametype
+                        or not beta_expected
+                        and "beta" in gametype
+                    ):
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "nobeta" if beta_expected else "hasbeta",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    # check for tag errors
+                    found_valid_gametype = len(gametype.intersection(banned_tags)) < 1
+                    if not found_valid_gametype:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "badgametype",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    # check for name errors
+                    name = server["name"]
+                    lower_name = name.lower()
+                    bad_name = False
+                    for invalid in banned_name_search:
+                        if invalid in lower_name:
+                            bad_name = True
+                    if bad_name:
+                        if DEBUG and not DEBUG_SKIP_SERVERS:
+                            return {
+                                "score": -999,
+                                "removal": "badname",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+                        else:
+                            return None
+                    bots = server["bots"]
+                    rep = get_value(steamid, table=rep_table)
+                    if rep is None:
+                        rep = 0
+                    score = rep + quickplay_bonus
+                    score += score_server(num_players, bots, max_players)
+                    if updated_servers:
                         try:
                             server_query = await a2s.ainfo((ip, port))
                         except:
@@ -875,12 +895,13 @@ async def query_runner(
                                 }
                             else:
                                 return None
-                        if server_query.password_protected:
-                            if DEBUG and not DEBUG_SKIP_SERVERS and False:
-                                return {"score": -999, "removal": "pass"}
-                            else:
-                                return None
-                        if False and APP_FULL_NAME not in server_query.game:
+                    if server_query.password_protected:
+                        if DEBUG and not DEBUG_SKIP_SERVERS and False:
+                            return {"score": -999, "removal": "pass"}
+                        else:
+                            return None
+                    if server_query.game != APP_FULL_NAME:
+                        if False:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
@@ -891,72 +912,81 @@ async def query_runner(
                                 }
                             else:
                                 return None
-                        # shift the scores around a little bit so we get some variance in sorting
-                        if score <= 6.025:
-                            score = shuffle(score, pct=0.0005)
-                        # calculate ping score
-                        ping = server_query.ping * 1000
-                        geo_override = get_value(ip, table=geo_table)
-                        if geo_override:
-                            country = geo_override["country"]
-                            continent = geo_override["continent"]
-                            lon = geo_override["lon"]
-                            lat = geo_override["lat"]
                         else:
-                            city = geoip.city(ip)
-                            country = city.country.iso_code
-                            continent = city.continent.code
-                            lon = city.location.longitude
-                            lat = city.location.latitude
-                        # TODO: do something with non-matching regions
-                        server_region = server["region"]
-                        point = (lat, lon)
-                        # TODO: do something with malicious ASN usage for fake pings
-                        # asn = geoasn.asn(ip)
-                        # aso = asn.autonomous_system_organization
-                        dist = geopy.distance.distance(my_point, point).km
-                        ideal = dist / 90
-                        overhead = max(ping - ideal - 2, 1)
-                        # strip attention seeking characters
-                        name = (
-                            name.replace("\u0001", "")
-                            .replace("\t", "")
-                            .encode("raw_unicode_escape")
-                            .decode("unicode_escape")
-                            .strip()
-                        )
-                        return {
-                            "addr": addr,
-                            "steamid": steamid,
-                            "name": name,
-                            # "region": server_region,
-                            # "continent": continent,
-                            # "country": country,
-                            "players": num_players,
-                            "max_players": max_players,
-                            "bots": bots,
-                            "map": map,
-                            "gametype": list(gametype),
-                            "score": score,
-                            "point": [lon, lat],
-                            "ping": overhead,
-                        }
-
-                    server_infos = await asyncio.gather(
-                        *[calc_server(server) for server in pending_servers]
+                            score -= 0.1
+                    # shift the scores around a little bit so we get some variance in sorting
+                    if 0 < score <= 6.025:
+                        score = shuffle(score, pct=0.0005)
+                    # calculate ping score
+                    ping = server_query.ping * 1000
+                    geo_override = get_value(ip, table=geo_table)
+                    if geo_override:
+                        country = geo_override["country"]
+                        continent = geo_override["continent"]
+                        lon = geo_override["lon"]
+                        lat = geo_override["lat"]
+                    else:
+                        city = geoip.city(ip)
+                        country = city.country.iso_code
+                        continent = city.continent.code
+                        lon = city.location.longitude
+                        lat = city.location.latitude
+                    # TODO: do something with non-matching regions
+                    server_region = server.get("region", 255)
+                    point = (lat, lon)
+                    asn = geoasn.asn(ip)
+                    # aso = asn.autonomous_system_organization
+                    asnn = str(asn.network)
+                    if asnn in anycast_ips:
+                        score -= 0.1
+                    dist = geopy.distance.distance(my_point, point).km
+                    # found through gradient descent
+                    ideal = dist / 65.5
+                    overhead = max(ping - ideal - 1, 1)
+                    # strip attention seeking characters
+                    if name.startswith("\u0001"):
+                        score -= 0.1
+                    name = (
+                        name.replace("\u0001", "")
+                        .replace("\t", "")
+                        .encode("raw_unicode_escape")
+                        .decode("unicode_escape")
+                        .strip()
                     )
-                    new_servers = [server for server in server_infos if server]
-                    new_servers.sort(key=get_score, reverse=True)
-                    with open("servers.json", "w", encoding="utf-8") as fp:
-                        json.dump(new_servers, fp, ensure_ascii=False, indent=2)
-                    if not DEBUG:
-                        async with comfig_session.post(
-                            "/api/quickplay/update",
-                            headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
-                            json={"servers": new_servers},
-                        ) as api_resp:
-                            print(await api_resp.text())
-                    print(len(new_servers))
+                    return {
+                        "addr": addr,
+                        "steamid": steamid,
+                        "name": name,
+                        # "region": server_region,
+                        # "continent": continent,
+                        # "country": country,
+                        "players": num_players,
+                        "max_players": max_players,
+                        "bots": bots,
+                        "map": map,
+                        "gametype": list(gametype),
+                        "score": score,
+                        "point": [lon, lat],
+                        "ping": overhead,
+                    }
+
+                server_infos = await asyncio.gather(
+                    *[calc_server(server) for server in pending_servers]
+                )
+                new_servers = [server for server in server_infos if server]
+                new_servers.sort(key=get_score, reverse=True)
+                pending_servers = new_servers
+                updated_servers = False
+                with open("servers.json", "w", encoding="utf-8") as fp:
+                    json.dump(new_servers, fp, ensure_ascii=False, indent=2)
+                if not DEBUG:
+                    async with comfig_session.post(
+                        "/api/quickplay/update",
+                        headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
+                        json={"servers": new_servers},
+                    ) as api_resp:
+                        print(await api_resp.text())
+                print(len(new_servers))
         except Exception:
             traceback.print_exc()
 
