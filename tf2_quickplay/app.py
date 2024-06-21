@@ -194,6 +194,7 @@ BASE_GAME_MAPS = {
     "koth_product_final": "koth",
     "koth_clearcut_b15d": "koth",
     "koth_ashville_final1": "koth",
+    "koth_jamram_rc2b": "koth",
     "pd_salvador_b2": "alternative",
     # refresh.tf, used a lot on Asia servers
     "pl_upward_f12": "payload",
