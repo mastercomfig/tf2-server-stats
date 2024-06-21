@@ -44,7 +44,7 @@ if not GEOIP_KEY:
     sys.exit(1)
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
 QUERY_INTERVAL = 30
-QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\full\1\ngametype\hidden,friendlyfire,highlander,noquickplay,trade,dmgspread,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
+QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\ngametype\hidden,friendlyfire,highlander,noquickplay,trade,dmgspread,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
 QUERY_LIMIT = "20000"
 
 CONTINENTS = {
