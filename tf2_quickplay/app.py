@@ -43,7 +43,8 @@ if not GEOIP_KEY:
     print("Need to pass in GEOIP_KEY")
     sys.exit(1)
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
-QUERY_INTERVAL = 30
+QUERY_INTERVAL = 10
+QUERY_INTERVAL_VARIANCE = 5
 QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\ngametype\hidden,friendlyfire,highlander,noquickplay,trade,dmgspread,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
 QUERY_LIMIT = "20000"
 
@@ -404,7 +405,7 @@ async def query_runner(
     pending_servers = []
     updated_servers = False
     while True:
-        next_query_interval = QUERY_INTERVAL + chaos(30)
+        next_query_interval = QUERY_INTERVAL + chaos(QUERY_INTERVAL_VARIANCE)
         items_game, updated, server_version = await req_items_game(
             api_session, cdn_session
         )
