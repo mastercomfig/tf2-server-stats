@@ -206,6 +206,14 @@ BASE_GAME_MAPS = {
     "koth_warmtic_f10": "koth",
 }
 
+COMMUNITY_MAPS_UNVERSIONED = None
+if DEBUG:
+    COMMUNITY_MAPS_UNVERSIONED = set()
+    for name in BASE_GAME_MAPS.keys():
+        unversion_name_split = name.split("_")
+        if len(unversion_name_split) > 2:
+            unversion_name = "_".join(unversion_name_split[:-1])
+
 BETA_MAPS = set(["rd_asteroid", "pl_cactuscanyon"])
 
 DEFAULT_MAP_PREFIXES = set(["koth", "ctf", "cp", "tc", "pl", "plr", "sd", "pd"])
@@ -666,6 +674,25 @@ async def query_runner(
                             if prefix in DEFAULT_MAP_PREFIXES and not map.startswith(
                                 "cp_orange"
                             ):
+                                unversion_name_split = map.split("_")
+                                if len(unversion_name_split) > 2:
+                                    unversion_name = "_".join(unversion_name_split[:-1])
+                                    if unversion_name in COMMUNITY_MAPS_UNVERSIONED:
+                                        return {
+                                            "score": -999,
+                                            "removal": "versionmapdiff",
+                                            "addr": addr,
+                                            "steamid": steamid,
+                                            "name": server["name"],
+                                            "players": server["players"],
+                                            "max_players": server["max_players"],
+                                            "bots": server["bots"],
+                                            "map": map,
+                                            "gametype": server.get("gametype", "")
+                                            .lower()
+                                            .split(","),
+                                        }
+
                                 return {
                                     "score": -999,
                                     "removal": "custommap",
@@ -903,6 +930,12 @@ async def query_runner(
                             return {"score": -999, "removal": "pass"}
                         else:
                             return None
+                    if server_query.app_id != APP_ID:
+                        return False
+                    if server_query.game_id != APP_ID:
+                        return False
+                    if server_query.folder != APP_NAME:
+                        return False
                     if server_query.game != APP_FULL_NAME:
                         if False:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
