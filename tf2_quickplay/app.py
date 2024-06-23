@@ -989,7 +989,7 @@ async def query_runner(
                             shuffle_score = shuffle(score, pct=0.0005) - score
                             shuffle_score_history[steamid] = shuffle_score
                         score += shuffle_score
-                    else:
+                    elif prev_player_count is not None:
                         del shuffle_score_history[steamid]
                     # calculate ping score
                     ping = server_query.ping * 1000
