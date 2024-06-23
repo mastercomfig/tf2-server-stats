@@ -15,6 +15,7 @@ from pathlib import Path
 
 import a2s
 import aiohttp
+import cachetools
 import geoip2
 import geoip2.database
 import geopy.distance
@@ -219,6 +220,16 @@ BETA_MAPS = set(["rd_asteroid", "pl_cactuscanyon"])
 DEFAULT_MAP_PREFIXES = set(["koth", "ctf", "cp", "tc", "pl", "plr", "sd", "pd"])
 
 TIMESTAMP_TIMEZONE = datetime.timezone.utc
+
+player_count_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
+
+PLAYER_TREND_MIN = 0.1
+PLAYER_TREND_MAX = 0.6
+
+PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
+PLAYER_TREND_COUNT_MAX = 18
+
+shuffle_score_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
 
 def utcnow() -> datetime.datetime:
@@ -950,9 +961,36 @@ async def query_runner(
                                 return None
                         else:
                             score -= 0.1
+                    # the lowest player count in the past hour
+                    prev_player_count = player_count_history.get(steamid, None)
+                    if prev_player_count is not None:
+                        if num_players < prev_player_count:
+                            player_count_history[steamid] = num_players
+                        else:
+                            if (
+                                prev_player_count < PLAYER_TREND_COUNT_LOW_POINT_LIMIT
+                                and num_players < PLAYER_TREND_COUNT_MAX
+                            ):
+                                player_increase = num_players - prev_player_count
+                                if player_increase > 0:
+                                    score += lerp(
+                                        0,
+                                        PLAYER_TREND_COUNT_MAX,
+                                        PLAYER_TREND_MAX,
+                                        PLAYER_TREND_MIN,
+                                        num_players,
+                                    )
+                    else:
+                        player_count_history[steamid] = num_players
                     # shift the scores around a little bit so we get some variance in sorting
-                    if 0 < score <= 6.025:
-                        score = shuffle(score, pct=0.0005)
+                    if num_players == 0:
+                        shuffle_score = shuffle_score_history.get(steamid, None)
+                        if shuffle_score is None:
+                            shuffle_score = shuffle(score, pct=0.0005) - score
+                            shuffle_score_history[steamid] = shuffle_score
+                        score += shuffle_score
+                    else:
+                        del shuffle_score_history[steamid]
                     # calculate ping score
                     ping = server_query.ping * 1000
                     geo_override = get_value(ip, table=geo_table)
