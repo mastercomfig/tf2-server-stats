@@ -962,7 +962,11 @@ async def query_runner(
                         lon = geo_override["lon"]
                         lat = geo_override["lat"]
                     else:
-                        city = geoip.city(ip)
+                        try:
+                            city = geoip.city(ip)
+                        except:
+                            traceback.print_exc()
+                            return None
                         country = city.country.iso_code
                         continent = city.continent.code
                         lon = city.location.longitude
@@ -970,11 +974,14 @@ async def query_runner(
                     # TODO: do something with non-matching regions
                     server_region = server.get("region", 255)
                     point = (lat, lon)
-                    asn = geoasn.asn(ip)
-                    # aso = asn.autonomous_system_organization
-                    asnn = str(asn.network)
-                    if asnn in anycast_ips:
-                        score -= 0.1
+                    try:
+                        asn = geoasn.asn(ip)
+                        # aso = asn.autonomous_system_organization
+                        asnn = str(asn.network)
+                        if asnn in anycast_ips:
+                            score -= 0.1
+                    except geoip2.errors.AddressNotFoundError:
+                        print(f"{ip} not in ASN database, passing")
                     dist = geopy.distance.distance(my_point, point).km
                     # found through gradient descent
                     ideal = dist / 65.5
