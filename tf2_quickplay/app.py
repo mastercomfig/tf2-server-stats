@@ -965,7 +965,8 @@ async def query_runner(
                         try:
                             city = geoip.city(ip)
                         except:
-                            traceback.print_exc()
+                            if DEBUG:
+                                traceback.print_exc()
                             return None
                         country = city.country.iso_code
                         continent = city.continent.code
@@ -981,7 +982,8 @@ async def query_runner(
                         if asnn in anycast_ips:
                             score -= 0.1
                     except geoip2.errors.AddressNotFoundError:
-                        print(f"{ip} not in ASN database, passing")
+                        if DEBUG:
+                            print(f"{ip} not in ASN database, passing")
                     dist = geopy.distance.distance(my_point, point).km
                     # found through gradient descent
                     ideal = dist / 65.5
