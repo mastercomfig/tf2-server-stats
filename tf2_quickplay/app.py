@@ -1069,7 +1069,7 @@ async def query_runner(
                     async with comfig_session.post(
                         "/api/quickplay/update",
                         headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
-                        json={"servers": new_servers, "until": until},
+                        json={"servers": new_servers, "until": until * 1000},
                     ) as api_resp:
                         print(await api_resp.text())
                 print(len(new_servers))
