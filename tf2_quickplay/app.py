@@ -578,7 +578,10 @@ async def query_runner(
                             server["appid"] = server_query.app_id
                             server["gamedir"] = server_query.folder
                             server["product"] = server_query.folder
-                            server["players"] = server_query.player_count
+                            server["players"] = (
+                                server_query.player_count - server_query.bot_count
+                            )
+                            server["bots"] = server_query.bot_count
                             server["map"] = server_query.map_name
                             server["gametype"] = server_query.keywords
                             server["version"] = server_query.version
