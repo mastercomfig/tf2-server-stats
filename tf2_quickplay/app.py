@@ -982,8 +982,8 @@ async def query_runner(
                                         score += lerp(
                                             0,
                                             PLAYER_TREND_COUNT_LOW_POINT_LIMIT,
-                                            PLAYER_TREND_MAX,
                                             PLAYER_TREND_MIN,
+                                            PLAYER_TREND_MAX,
                                             num_players,
                                         )
                     else:
