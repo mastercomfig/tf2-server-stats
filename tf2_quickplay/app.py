@@ -73,7 +73,7 @@ APP_FULL_NAME = "Team Fortress"
 
 MIN_PLAYER_CAP = 18
 MAX_PLAYER_CAP = 101
-FULL_PLAYERS = 33
+FULL_PLAYERS = 24
 
 SERVER_HEADROOM = 1
 
@@ -223,8 +223,8 @@ TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
 player_count_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
-PLAYER_TREND_MIN = 0.4
-PLAYER_TREND_MAX = 0.7
+PLAYER_TREND_MIN = 0.55
+PLAYER_TREND_MAX = 0.9
 
 PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
 PLAYER_TREND_COUNT_MAX = 18
@@ -362,16 +362,18 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
     new_total_players = new_humans
 
     real_max_players = max_players
+    if new_total_players + SERVER_HEADROOM > real_max_players:
+        return -100.0
+
+    # aim to give every game a base population normalized to 24 max players
     if max_players > FULL_PLAYERS:
         max_players = FULL_PLAYERS
 
     if new_humans > FULL_PLAYERS:
-        # if it's actually full it'll get caught by the condition below.
+        # if it's actually full it'll get caught by the headroom condition above.
         new_humans = FULL_PLAYERS - 1
 
-    if new_total_players + SERVER_HEADROOM > real_max_players:
-        return -100.0
-
+    # penalize a completely empty server
     if new_humans == 1:
         return -0.3
 
@@ -387,7 +389,10 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
     elif new_humans <= count_ideal:
         return lerp(count_low, count_ideal, score_low, score_ideal, new_humans)
     else:
-        return lerp(count_ideal, max_players, score_ideal, score_fuller, new_humans)
+        # score within the real bounds of the server, so higher max players doesn't give bonus
+        return lerp(
+            count_ideal, real_max_players, score_ideal, score_fuller, new_humans
+        )
 
 
 async def query_runner(
