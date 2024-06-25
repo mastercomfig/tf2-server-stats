@@ -223,8 +223,8 @@ TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
 player_count_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
-PLAYER_TREND_MIN = 0.1
-PLAYER_TREND_MAX = 0.6
+PLAYER_TREND_MIN = 0.4
+PLAYER_TREND_MAX = 0.7
 
 PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
 PLAYER_TREND_COUNT_MAX = 18
@@ -973,13 +973,19 @@ async def query_runner(
                             ):
                                 player_increase = num_players - prev_player_count
                                 if player_increase > 0:
-                                    score += lerp(
-                                        0,
-                                        PLAYER_TREND_COUNT_MAX,
-                                        PLAYER_TREND_MAX,
-                                        PLAYER_TREND_MIN,
-                                        num_players,
-                                    )
+                                    if (
+                                        num_players
+                                        >= PLAYER_TREND_COUNT_LOW_POINT_LIMIT
+                                    ):
+                                        score += PLAYER_TREND_COUNT_MAX
+                                    else:
+                                        score += lerp(
+                                            0,
+                                            PLAYER_TREND_COUNT_LOW_POINT_LIMIT,
+                                            PLAYER_TREND_MAX,
+                                            PLAYER_TREND_MIN,
+                                            num_players,
+                                        )
                     else:
                         player_count_history[steamid] = num_players
                     # shift the scores around a little bit so we get some variance in sorting
