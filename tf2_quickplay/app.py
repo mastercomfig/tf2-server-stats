@@ -153,7 +153,7 @@ BASE_GAME_MAPS = {
     "pd_galleria": "alternative",
     "arena_perks": "arena",
     # community map variants
-    "cp_stoneyridge_rc2 ": "capture_point",
+    "cp_stoneyridge_rc2": "capture_point",
     "cp_ambush_rc5": "attack_defense",
     "pl_coal_rc23": "payload",
     "pl_fifthcurve_rc1": "payload",
@@ -500,21 +500,6 @@ async def query_runner(
                                 else:
                                     if name not in map_gamemode:
                                         map_gamemode[name] = gamemode
-                                        if name not in MAP_THUMBNAILS:
-                                            if update_thumbnails:
-                                                async with teamwork_session.get(
-                                                    f"/api/v1/map-stats/mapthumbnail/{name}",
-                                                    params={"key": TEAMWORK_API_KEY},
-                                                ) as resp:
-                                                    body = await resp.read()
-                                                    try:
-                                                        body = orjson.loads(body)
-                                                        MAP_THUMBNAILS[name] = body[
-                                                            "thumbnail"
-                                                        ]
-                                                        updated_thumbnails = True
-                                                    except:
-                                                        update_thumbnails = False
                         if (
                             mm_type == "special_events" or mm_type == "alternative"
                         ) and gamemode != "payload_race":
@@ -525,6 +510,29 @@ async def query_runner(
                                     gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
+                    for name in map_gamemode.keys():
+                        if name not in MAP_THUMBNAILS:
+                            if update_thumbnails:
+                                async with teamwork_session.get(
+                                    f"/api/v1/map-stats/mapimages/{name}",
+                                    params={"key": TEAMWORK_API_KEY},
+                                ) as resp:
+                                    body = await resp.read()
+                                    try:
+                                        body = orjson.loads(body)
+                                        err = body.get("error")
+                                        if err:
+                                            if DEBUG:
+                                                print(err, name)
+                                            continue
+                                        MAP_THUMBNAILS[name] = body["thumbnail"]
+                                        if not MAP_THUMBNAILS[name]:
+                                            MAP_THUMBNAILS[name] = body["screenshots"][
+                                                0
+                                            ]
+                                        updated_thumbnails = True
+                                    except:
+                                        update_thumbnails = False
                     if updated_thumbnails:
                         with open("map_thumbnails.json", "wb") as fp:
                             fp.write(
@@ -1156,7 +1164,7 @@ def handle_geoip(geoipDb, edition):
 
 
 def encode_json(obj):
-    orjson.dumps(obj).decode("utf-8")
+    return orjson.dumps(obj).decode("utf-8")
 
 
 async def main():
