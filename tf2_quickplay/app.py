@@ -326,9 +326,7 @@ async def req_items_game(
                 new_overview_resp = new_overview_resp.replace(
                     "http://media.steampowered.com", ""
                 )
-                next_overview_resp_time = current_time + (
-                    (OVERVIEW_INTERVAL + chaos()) * 1000
-                )
+                next_overview_resp_time = current_time + OVERVIEW_INTERVAL + chaos()
                 if new_overview_resp != last_overview_resp:
                     last_overview_resp = new_overview_resp
                     async with cdn_session.get(last_overview_resp) as items_game_resp:
@@ -951,11 +949,11 @@ async def query_runner(
                         else:
                             return None
                     if server_query.app_id != APP_ID:
-                        return False
+                        return None
                     if server_query.game_id != APP_ID:
-                        return False
+                        return None
                     if server_query.folder != APP_NAME:
-                        return False
+                        return None
                     if server_query.game != APP_FULL_NAME:
                         if False:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
