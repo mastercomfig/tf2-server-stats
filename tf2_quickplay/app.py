@@ -43,6 +43,10 @@ GEOIP_KEY = os.getenv("GEOIP_KEY")
 if not GEOIP_KEY:
     print("Need to pass in GEOIP_KEY")
     sys.exit(1)
+TEAMWORK_API_KEY = os.getenv("TEAMWORK_API_KEY")
+if not TEAMWORK_API_KEY:
+    print("Need to pass in TEAMWORK_API_KEY")
+    sys.exit(1)
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
 QUERY_INTERVAL = 10
 QUERY_INTERVAL_VARIANCE = 5
@@ -236,6 +240,8 @@ def utcnow() -> datetime.datetime:
     return datetime.datetime.now(tz=TIMESTAMP_TIMEZONE)
 
 
+MAP_THUMBNAILS = {}
+
 EMPTY_DICT = {}
 
 TableValueType = int | float | str | bool
@@ -400,6 +406,7 @@ async def query_runner(
     api_session: aiohttp.ClientSession,
     cdn_session: aiohttp.ClientSession,
     comfig_session: aiohttp.ClientSession,
+    teamwork_session: aiohttp.ClientSession,
 ):
     server_params = {
         "key": STEAM_API_KEY,
@@ -481,6 +488,13 @@ async def query_runner(
                                 else:
                                     if name not in map_gamemode:
                                         map_gamemode[name] = gamemode
+                                        if name not in MAP_THUMBNAILS:
+                                            async with teamwork_session.get(
+                                                f"/api/v1/map-stats/mapthumbnail/{name}",
+                                                params={"key": TEAMWORK_API_KEY},
+                                            ) as resp:
+                                                body = await resp.json()
+                                                MAP_THUMBNAILS[name] = body["thumbnail"]
                         if (
                             mm_type == "special_events" or mm_type == "alternative"
                         ) and gamemode != "payload_race":
@@ -498,6 +512,7 @@ async def query_runner(
                             json={
                                 "schema": {
                                     "map_gamemodes": map_gamemode,
+                                    "map_thumbnails": MAP_THUMBNAILS,
                                     "gamemodes": {
                                         k: list(v)
                                         for k, v in gamemodes.items()
@@ -1132,9 +1147,17 @@ async def main():
                         base_url=COMFIG_API_URL,
                         json_serialize=ujson.dumps,
                     ) as comfig_session:
-                        await query_runner(
-                            geoasn, geoip, api_session, cdn_session, comfig_session
-                        )
+                        async with aiohttp.ClientSession(
+                            base_url="https://teamwork.tf"
+                        ) as teamwork_session:
+                            await query_runner(
+                                geoasn,
+                                geoip,
+                                api_session,
+                                cdn_session,
+                                comfig_session,
+                                teamwork_session,
+                            )
 
 
 def start():
