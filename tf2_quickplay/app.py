@@ -388,11 +388,12 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
         return lerp(0, count_low, 0.0, score_low, new_humans)
     elif new_humans <= count_ideal:
         return lerp(count_low, count_ideal, score_low, score_ideal, new_humans)
+    elif new_humans <= max_players:
+        # give all servers equal footing for the slots they can compete for
+        return lerp(count_ideal, max_players, score_ideal, score_fuller, new_humans)
     else:
-        # score within the real bounds of the server, so higher max players doesn't give bonus
-        return lerp(
-            count_ideal, real_max_players, score_ideal, score_fuller, new_humans
-        )
+        # score within the real bounds of the server, so we still give a bonus but less than our ideal 24 player match
+        return lerp(max_players, real_max_players, score_ideal, score_low, new_humans)
 
 
 async def query_runner(
