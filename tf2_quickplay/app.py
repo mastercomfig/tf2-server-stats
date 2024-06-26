@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import json
 import math
 import os
 import random
@@ -21,7 +20,6 @@ import geoip2.database
 import geopy.distance
 import orjson
 import tinydb
-import ujson
 import vdf
 from dotenv import load_dotenv
 
@@ -240,7 +238,9 @@ def utcnow() -> datetime.datetime:
     return datetime.datetime.now(tz=TIMESTAMP_TIMEZONE)
 
 
-MAP_THUMBNAILS = {}
+MAP_THUMBNAILS: dict[str, str] = {}
+with open("map_thumbnails.json", "rb") as fp:
+    MAP_THUMBNAILS = orjson.loads(fp.read())
 
 EMPTY_DICT = {}
 
@@ -324,7 +324,8 @@ async def req_items_game(
         async with api_session.get(
             "/IEconItems_440/GetSchemaOverview/v1/", params=STEAM_API_PARAM
         ) as resp:
-            body = await resp.json(encoding="utf-8")
+            body = await resp.read()
+            body = orjson.loads(body)
             new_overview_resp: str | None = body.get("result", EMPTY_DICT).get(
                 "items_game_url"
             )
@@ -344,7 +345,8 @@ async def req_items_game(
         async with api_session.get(
             "/IGCVersion_440/GetServerVersion/v1/", params=STEAM_API_PARAM
         ) as resp:
-            body = await resp.json(encoding="utf-8")
+            body = await resp.read()
+            body = orjson.loads(body)
             server_version = body.get("result", EMPTY_DICT).get("min_allowed_version")
             if server_version:
                 last_server_version = server_version
@@ -361,7 +363,11 @@ def get_score(server):
     return server["score"]
 
 
-def score_server(humans: int, bots: int, max_players: int) -> float:
+def to_nearest_even(num: float):
+    return 2 * round(num / 2)
+
+
+def score_server(humans: int, max_players: int) -> float:
     new_humans = humans + 1
     new_total_players = new_humans
 
@@ -381,8 +387,11 @@ def score_server(humans: int, bots: int, max_players: int) -> float:
     if new_humans == 1:
         return -0.3
 
-    count_low = max_players // 3
-    count_ideal = (max_players * 5) // 6
+    # get 1/3, round to nearest even for balanced teams
+    count_low = to_nearest_even(max_players / 3)
+    # get 72% (1/2 sqrt(2)), round to nearest even for balanced teams
+    # this gets us: 18 (9v9) for 24 players, and 12 (6v6) for 18 players
+    count_ideal = to_nearest_even(max_players * 0.72)
 
     score_low = 0.1
     score_ideal = 1.6
@@ -425,7 +434,8 @@ async def query_runner(
     my_ip = "127.0.0.1"
     async with aiohttp.ClientSession("https://api.ipify.org") as ip_session:
         async with ip_session.get("/?format=json") as resp:
-            body = await resp.json()
+            body = await resp.read()
+            body = orjson.loads(body)
             my_ip = body["ip"]
     my_city = geoip.city(my_ip)
     my_lon = my_city.location.longitude
@@ -447,6 +457,8 @@ async def query_runner(
         try:
             if items_game:
                 if updated:
+                    updated_thumbnails = False
+                    update_thumbnails = True
                     map_gamemode = dict(BASE_GAME_MAPS)
                     gamemodes = {}
                     holiday_map_gamemode = defaultdict(dict)
@@ -489,12 +501,20 @@ async def query_runner(
                                     if name not in map_gamemode:
                                         map_gamemode[name] = gamemode
                                         if name not in MAP_THUMBNAILS:
-                                            async with teamwork_session.get(
-                                                f"/api/v1/map-stats/mapthumbnail/{name}",
-                                                params={"key": TEAMWORK_API_KEY},
-                                            ) as resp:
-                                                body = await resp.json()
-                                                MAP_THUMBNAILS[name] = body["thumbnail"]
+                                            if update_thumbnails:
+                                                async with teamwork_session.get(
+                                                    f"/api/v1/map-stats/mapthumbnail/{name}",
+                                                    params={"key": TEAMWORK_API_KEY},
+                                                ) as resp:
+                                                    body = await resp.read()
+                                                    try:
+                                                        body = orjson.loads(body)
+                                                        MAP_THUMBNAILS[name] = body[
+                                                            "thumbnail"
+                                                        ]
+                                                        updated_thumbnails = True
+                                                    except:
+                                                        update_thumbnails = False
                         if (
                             mm_type == "special_events" or mm_type == "alternative"
                         ) and gamemode != "payload_race":
@@ -505,6 +525,11 @@ async def query_runner(
                                     gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
+                    if updated_thumbnails:
+                        with open("map_thumbnails.json", "wb") as fp:
+                            fp.write(
+                                orjson.dumps(MAP_THUMBNAILS, option=orjson.OPT_INDENT_2)
+                            )
                     if not DEBUG:
                         async with comfig_session.post(
                             "/api/schema/update",
@@ -938,7 +963,7 @@ async def query_runner(
                     if rep is None:
                         rep = 0
                     score = rep + quickplay_bonus
-                    score += score_server(num_players, bots, max_players)
+                    score += score_server(num_players, max_players)
                     if updated_servers:
                         try:
                             server_query = await a2s.ainfo((ip, port))
@@ -1088,8 +1113,8 @@ async def query_runner(
                 new_servers.sort(key=get_score, reverse=True)
                 pending_servers = new_servers
                 updated_servers = False
-                with open("servers.json", "w", encoding="utf-8") as fp:
-                    json.dump(new_servers, fp, ensure_ascii=False, indent=2)
+                with open("servers.json", "wb") as fp:
+                    fp.write(orjson.dumps(new_servers, option=orjson.OPT_INDENT_2))
                 if not DEBUG:
                     until = (
                         utcnow() + datetime.timedelta(seconds=next_query_interval + 1)
@@ -1130,6 +1155,10 @@ def handle_geoip(geoipDb, edition):
     return True
 
 
+def encode_json(obj):
+    orjson.dumps(obj).decode("utf-8")
+
+
 async def main():
     geoipDb = Path(f"./GeoIP2-City.mmdb")
     handle_geoip(geoipDb, "GeoLite2-City")
@@ -1145,7 +1174,7 @@ async def main():
                 ) as cdn_session:
                     async with aiohttp.ClientSession(
                         base_url=COMFIG_API_URL,
-                        json_serialize=ujson.dumps,
+                        json_serialize=encode_json,
                     ) as comfig_session:
                         async with aiohttp.ClientSession(
                             base_url="https://teamwork.tf"
