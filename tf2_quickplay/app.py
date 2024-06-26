@@ -384,7 +384,7 @@ def score_server(humans: int, max_players: int) -> float:
         new_humans = FULL_PLAYERS - 1
 
     # penalize a completely empty server
-    if new_humans == 1:
+    if humans == 0:
         return -0.3
 
     # get 1/3, round to nearest even for balanced teams
