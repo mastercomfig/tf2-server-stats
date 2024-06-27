@@ -151,6 +151,8 @@ BASE_GAME_MAPS = {
     "koth_snowtower": "koth",
     "pd_snowville_event": "alternative",
     "pd_galleria": "alternative",
+    "plr_highertower": "alternative",
+    "plr_highertower_extended": "alternative",
     "arena_perks": "arena",
     # community map variants
     "cp_stoneyridge_rc2": "capture_point",
@@ -192,7 +194,7 @@ BASE_GAME_MAPS = {
     "pl_cactuscanyon_redux_final2": "payload",
     "pl_extinction_rc3": "payload",
     "pl_patagonia_rc1b": "payload",
-    "plr_tdm_hightower_rc1": "payload_race",
+    "plr_tdm_hightower_rc1": "alternative",
     "koth_hangar_rc5b": "koth",
     "koth_soot_final1": "koth",
     "koth_product_final": "koth",
