@@ -201,6 +201,7 @@ BASE_GAME_MAPS = {
     "koth_clearcut_b15d": "koth",
     "koth_ashville_final1": "koth",
     "koth_jamram_rc2b": "koth",
+    "ctf_snowfort_2023": "ctf",
     "pd_salvador_b2": "alternative",
     # refresh.tf, used a lot on Asia servers
     "pl_upward_f12": "payload",
@@ -209,6 +210,12 @@ BASE_GAME_MAPS = {
     "cp_metalworks_f5": "capture_point",
     "cp_gullywash_f9": "capture_point",
     "koth_warmtic_f10": "koth",
+    # some more custom misc maps
+    "vsh_warebloom_b7": "alternative",
+    "vsh_facility_rc2": "alternative",
+    "vsh_graygravelhq_rc0": "alternative",
+    "vsh_harvest_final": "alternative",
+    "vsh_hightower_rc1": "alternative",
 }
 
 COMMUNITY_MAPS_UNVERSIONED = None
@@ -227,8 +234,8 @@ TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
 player_count_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
-PLAYER_TREND_MIN = 0.55
-PLAYER_TREND_MAX = 0.9
+PLAYER_TREND_MIN = 0.5
+PLAYER_TREND_MAX = 0.85
 
 PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
 PLAYER_TREND_COUNT_MAX = 18
