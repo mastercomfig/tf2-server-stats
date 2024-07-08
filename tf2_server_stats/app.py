@@ -32,7 +32,8 @@ if not COMFIG_API_KEY:
     print("Need to pass in COMFIG_API_KEY")
     sys.exit(1)
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
-QUERY_INTERVAL = 10 * 60
+QUERY_INTERVAL = 0.833 * 60
+QUERY_INTERVAL_VARIANCE = 3.333 * 60
 QUERY_FILTER = r"\appid\440\gamedir\tf\empty\1"
 QUERY_LIMIT = "20000"
 
@@ -173,8 +174,14 @@ async def query_runner(
     banned_ips = set(get_value("ips", default=[], table=ban_table))
     banned_ids = set(get_value("ids", default=[], table=ban_table))
     pending_servers = []
+    query_intervals = []
     while True:
-        next_query_interval = QUERY_INTERVAL
+        if len(query_intervals) == 0:
+            query_1 = QUERY_INTERVAL + chaos(QUERY_INTERVAL_VARIANCE)
+            query_2 = QUERY_INTERVAL + chaos(QUERY_INTERVAL_VARIANCE)
+            query_3 = 10 * 60 - (query_1 + query_2)
+            query_intervals = [query_3, query_2, query_1]
+        next_query_interval = query_intervals.pop()
         server_version = await get_server_version(api_session)
         try:
             if server_version:
@@ -214,7 +221,7 @@ async def query_runner(
                     # check for map
                     map = server.get("map")
                     if not map:
-                        return None
+                        count_players = False
                     # check for ban
                     steamid = server["steamid"]
                     if steamid in banned_ids:
