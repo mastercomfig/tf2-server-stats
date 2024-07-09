@@ -595,9 +595,10 @@ async def query_runner(
                                             continue
                                         MAP_THUMBNAILS[name] = body["thumbnail"]
                                         if not MAP_THUMBNAILS[name]:
-                                            MAP_THUMBNAILS[name] = body["screenshots"][
-                                                0
-                                            ]
+                                            screenshots = body["screenshots"]
+                                            if not screenshots:
+                                                continue
+                                            MAP_THUMBNAILS[name] = screenshots[0]
                                         updated_thumbnails = True
                                     except:
                                         update_thumbnails = False
