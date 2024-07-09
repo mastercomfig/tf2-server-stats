@@ -48,7 +48,7 @@ if not TEAMWORK_API_KEY:
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
 QUERY_INTERVAL = 10
 QUERY_INTERVAL_VARIANCE = 5
-QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\ngametype\hidden,friendlyfire,highlander,noquickplay,trade,dmgspread,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
+QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\ngametype\hidden,friendlyfire,noquickplay,trade,dmgspread,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
 QUERY_LIMIT = "20000"
 
 CONTINENTS = {
@@ -139,7 +139,9 @@ BASE_GAME_MAPS = {
     "ctf_frosty": "ctf",
     "ctf_snowfall_final": "ctf",
     "ctf_turbine_winter": "ctf",
+    "cp_carrier": "attack_defense",
     "cp_frostwatch": "attack_defense",
+    "cp_gravelpit_snowy": "attack_defense",
     "pl_frostcliff": "payload",
     "pl_chilly": "payload",
     "pl_coal_event": "payload",
@@ -164,8 +166,12 @@ BASE_GAME_MAPS = {
     "pl_rumble_rc1": "payload",
     "pl_sludgepit_final4": "payload",
     "pl_vineyard_rc8b": "payload",
+    "pl_eruption_b13": "payload",
+    "pl_eruption_b14": "payload",
+    "koth_bagel_rc8": "koth",
     "koth_bagel_rc9b": "koth",
     "koth_brine_rc3a": "koth",
+    "koth_camp_saxton_b1": "koth",
     "koth_maple_ridge_rc2": "koth",
     "koth_megasnow_rc1": "koth",
     "koth_moonshine": "koth",
@@ -174,17 +180,28 @@ BASE_GAME_MAPS = {
     "koth_undergrove_rc1": "koth",
     # popular community maps
     # this is an investigation to improve server pop
+    "ctf_snowfort_2023": "ctf",
+    "ctf_2fort_improved_a8f1": "ctf",
     "cp_glassworks_rc7a": "capture_point",
     "cp_mist_rc1e": "capture_point",
     "cp_overgrown_rc8": "capture_point",
     "cp_propaganda_b19": "capture_point",
     "cp_logjam_rc12": "capture_point",
     "cp_hazyfort_rc6": "capture_point",
+    "cp_sultry_b8a": "capture_point",
+    "cp_reckoner_rc6": "capture_point",
     "pl_stallberg_rc3": "payload",
     "pl_vigil_rc10": "payload",
     "pl_oasis_rc3": "payload",
     "pl_rocksalt_v7": "payload",
+    "pl_divulgence_b4b": "payload",
+    "pl_metropolis_b7": "payload",
+    "pl_odyssey_b3": "payload",
+    "pl_embargo_b3": "payload",
+    "pl_highwood_b19": "payload",
+    "pl_midwest_rc1a": "payload",
     "pl_shoreleave_rc2": "payload",
+    "pl_barnblitz_pro6": "payload",
     "pl_barnblitz_pro7": "payload",
     "pl_prowater_b12": "payload",
     "pl_badwater_pro_v12": "payload",
@@ -194,21 +211,30 @@ BASE_GAME_MAPS = {
     "pl_cactuscanyon_redux_final2": "payload",
     "pl_extinction_rc3": "payload",
     "pl_patagonia_rc1b": "payload",
-    "plr_tdm_hightower_rc1": "alternative",
+    "koth_lakeside_r2": "koth",
+    "koth_highertower": "koth",
     "koth_hangar_rc5b": "koth",
     "koth_soot_final1": "koth",
     "koth_product_final": "koth",
     "koth_clearcut_b15d": "koth",
+    "koth_ashville_final": "koth",
     "koth_ashville_final1": "koth",
     "koth_jamram_rc2b": "koth",
-    "ctf_snowfort_2023": "ctf",
+    "koth_proplant_v8": "koth",
+    "koth_proot_b5b": "koth",
+    "rd_asteroid_redux_b1": "alternative",
     "pd_salvador_b2": "alternative",
+    "pd_salvador_b3c": "alternative",
+    "plr_tdm_hightower_rc1": "alternative",
     # refresh.tf, used a lot on Asia servers
-    "pl_upward_f12": "payload",
-    "pl_borneo_f2": "payload",
     "cp_process_f12": "capture_point",
+    "cp_process_f11": "capture_point",
     "cp_metalworks_f5": "capture_point",
     "cp_gullywash_f9": "capture_point",
+    "cp_steel_f12": "attack_defense",
+    "pl_upward_f12": "payload",
+    "pl_upward_f10": "payload",
+    "pl_borneo_f2": "payload",
     "koth_warmtic_f10": "koth",
     # some more custom misc maps
     "vsh_warebloom_b7": "alternative",
@@ -216,6 +242,13 @@ BASE_GAME_MAPS = {
     "vsh_graygravelhq_rc0": "alternative",
     "vsh_harvest_final": "alternative",
     "vsh_hightower_rc1": "alternative",
+    "vsh_moving_in_v4": "alternative",
+    "vsh_streets_v3": "alternative",
+    "vsh_military_area_se6": "alternative",
+    # popular 100-player server maps
+    "pl_dustbowl_st3": "payload",
+    "pl_circle_st1": "payload",
+    "pl_dbz_b5": "payload",
 }
 
 COMMUNITY_MAPS_UNVERSIONED = None
@@ -239,6 +272,32 @@ PLAYER_TREND_MAX = 0.85
 
 PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
 PLAYER_TREND_COUNT_MAX = 18
+
+CLASS_BAN_LIKELY = [
+    "sniper banned",
+    "sniper-free",
+    "sniper is banned",
+    "no sniper",
+    "sniper-only",
+]
+NO_CAP_LIKELY_GAMETYPE = [
+    "dm",
+    "tdm",
+    "duel",
+    "noflag",
+    "noflags",
+    "nocart",
+    "nocarts",
+    "deathmatch",
+]
+NO_CAP_LIKELY_NAME = [
+    "no flag",
+    "no intel",
+    "no cart",
+    "deathmatch",
+    "duel",
+    "tdm",
+]
 
 shuffle_score_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
@@ -836,11 +895,36 @@ async def query_runner(
                             }
                         else:
                             return None
+                    # normalize name
+                    name = server["name"]
+                    lower_name = name.lower()
                     # check for gametype
                     gametype = server.get("gametype")
                     if not gametype:
                         return None
                     gametype = set(gametype.lower().split(","))
+                    if "rtd" not in gametype:
+                        if "rtd" in lower_name:
+                            gametype.add("rtd")
+                    if "highlander" in gametype:
+                        gametype.add("classlimits")
+                    if "classlimit" in gametype:
+                        gametype.add("classlimits")
+                        gametype.remove("classlimit")
+                    if "classban" in gametype:
+                        gametype.add("classbans")
+                        gametype.remove("classban")
+                    if "classbans" not in gametype:
+                        if any((x in lower_name for x in CLASS_BAN_LIKELY)):
+                            gametype.add("classbans")
+                    if "classlimits" not in gametype:
+                        if "uncletopia" in lower_name:
+                            gametype.add("classlimits")
+                    if any((x in gametype for x in NO_CAP_LIKELY_GAMETYPE)):
+                        gametype.add("nocap")
+                    if "nocap" not in gametype:
+                        if any((x in lower_name for x in NO_CAP_LIKELY_NAME)):
+                            gametype.add("nocap")
                     # is lying about max players?
                     if max_players > 25 and "increased_maxplayers" not in gametype:
                         if DEBUG and not DEBUG_SKIP_SERVERS:
@@ -896,7 +980,12 @@ async def query_runner(
                             return None
                     # is it the gamemode we want?
                     expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
-                    if expected_gamemode and expected_gamemode not in gametype:
+                    # we let forced arena as an exception to this
+                    if (
+                        expected_gamemode
+                        and expected_gamemode not in gametype
+                        and "arena" not in gametype
+                    ):
                         if DEBUG and not DEBUG_SKIP_SERVERS:
                             return {
                                 "score": -999,
@@ -953,8 +1042,6 @@ async def query_runner(
                         else:
                             return None
                     # check for name errors
-                    name = server["name"]
-                    lower_name = name.lower()
                     bad_name = False
                     for invalid in banned_name_search:
                         if invalid in lower_name:
