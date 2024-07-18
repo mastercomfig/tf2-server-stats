@@ -1190,6 +1190,7 @@ async def query_runner(
                     name = (
                         name.replace("\u0001", "")
                         .replace("\t", "")
+                        .replace("\N", "")
                         .encode("raw_unicode_escape")
                         .decode("unicode_escape")
                         .strip()
