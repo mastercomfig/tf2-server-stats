@@ -236,7 +236,7 @@ async def query_runner(
                         server["name"]
                         .replace("\u0001", "")
                         .replace("\t", "")
-                        .replace("\N", "")
+                        .replace(r"\N", "")
                         .encode("raw_unicode_escape")
                         .decode("unicode_escape")
                         .strip()
