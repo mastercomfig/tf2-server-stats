@@ -1044,18 +1044,21 @@ async def query_runner(
                                 continue
                             if tag in expected_tags:
                                 continue
-                            return {
-                                "score": -999,
-                                "removal": f"unexpectedtag",
-                                "addr": addr,
-                                "steamid": steamid,
-                                "name": server["name"],
-                                "players": server["players"],
-                                "max_players": server["max_players"],
-                                "bots": server["bots"],
-                                "map": map,
-                                "gametype": list(gametype),
-                            }
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
+                                return {
+                                    "score": -999,
+                                    "removal": f"unexpectedtag",
+                                    "addr": addr,
+                                    "steamid": steamid,
+                                    "name": server["name"],
+                                    "players": server["players"],
+                                    "max_players": server["max_players"],
+                                    "bots": server["bots"],
+                                    "map": map,
+                                    "gametype": list(gametype),
+                                }
+                            else:
+                                return None
 
                     beta_expected = map in BETA_MAPS
                     if (
