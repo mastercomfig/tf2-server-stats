@@ -603,7 +603,8 @@ async def query_runner(
                         else:
                             gamemodes[gamemode] = gamemode_maps
                     for name in map_gamemode.keys():
-                        if name not in MAP_THUMBNAILS:
+                        # if we don't have the map yet, or it's null
+                        if name not in MAP_THUMBNAILS or not MAP_THUMBNAILS[name]:
                             if update_thumbnails:
                                 async with teamwork_session.get(
                                     f"/api/v1/map-stats/mapimages/{name}",
@@ -625,6 +626,7 @@ async def query_runner(
                                             MAP_THUMBNAILS[name] = screenshots[0]
                                         updated_thumbnails = True
                                     except:
+                                        # bail out of the update due to errors
                                         update_thumbnails = False
                     if updated_thumbnails:
                         with open("map_thumbnails.json", "wb") as fp:
