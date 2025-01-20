@@ -99,6 +99,21 @@ GAMEMODE_TO_TAG = {
     "alternative": "",
 }
 
+COMMUNITY_TAG_TO_OFFICIAL = {
+    "pass": "passtime",
+    "controlpoints": "cp",
+    "pl_": "payload",
+    "plr": "payload",
+    "plr_": "payload",
+    "payloadrace": "payload",
+    "payload race": "payload",
+    "plr_hightower": "payload",
+    "plr_hi": "payload",
+    "koth": "cp",
+    "capture_the_flag": "ctf",
+    "flag": "ctf",
+}
+
 DEFAULT_GAMEMODES = set(
     [
         "attack_defense",
@@ -177,6 +192,7 @@ BASE_GAME_MAPS = {
     # this is an investigation to improve server pop
     "ctf_snowfort_2023": "ctf",
     "ctf_2fort_improved_a8f1": "ctf",
+    "ctf_damnable_a4": "ctf",
     "cp_glassworks_rc7a": "capture_point",
     "cp_mist_rc1e": "capture_point",
     "cp_overgrown_rc8": "capture_point",
@@ -240,6 +256,8 @@ BASE_GAME_MAPS = {
     "vsh_moving_in_v4": "alternative",
     "vsh_streets_v3": "alternative",
     "vsh_military_area_se6": "alternative",
+    "vsh_brewery_v4_fixed": "alternative",
+    "vsh_snowflakes_b1_starfix": "alternative",
     # popular 100-player server maps
     "pl_dustbowl_st3": "payload",
     "pl_circle_st1": "payload",
@@ -257,6 +275,17 @@ if DEBUG:
 BETA_MAPS = set(["rd_asteroid", "pl_cactuscanyon"])
 
 DEFAULT_MAP_PREFIXES = set(["koth", "ctf", "cp", "tc", "pl", "plr", "sd", "pd"])
+
+PREFIX_TO_GAMEMODE = {
+    "ctf": "ctf",
+    "cp": "capture_point",
+    "koth": "koth",
+    "pl": "payload",
+    "plr": "payload_race",
+    "tc": "alternative",
+    "sd": "alternative",
+    "pd": "alternative",
+}
 
 TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
@@ -976,6 +1005,11 @@ async def query_runner(
                             return None
                     # is it the gamemode we want?
                     expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
+                    if not expected_gamemode:
+                        prefix = map.split("_")[0]
+                        prefix_gamemode = PREFIX_TO_GAMEMODE.get(prefix)
+                        if prefix_gamemode:
+                            expected_gamemode = GAMEMODE_TO_TAG.get(prefix_gamemode)
                     # we let forced arena as an exception to this
                     if (
                         expected_gamemode
@@ -985,7 +1019,7 @@ async def query_runner(
                         if DEBUG and not DEBUG_SKIP_SERVERS:
                             return {
                                 "score": -999,
-                                "removal": "unexpectedtag",
+                                "removal": "missingexpectedtag",
                                 "addr": addr,
                                 "steamid": steamid,
                                 "name": server["name"],
@@ -997,6 +1031,32 @@ async def query_runner(
                             }
                         else:
                             return None
+                    if expected_gamemode:
+                        # we checked if we have the tag we expect. now, let's check if we have tags we DON'T expect.
+                        # if we have arena, powerups active, or misc active, that's fine
+                        # but servers CANNOT double dip on gamemode search for players
+                        expected_tags = set(
+                            [expected_gamemode, "arena", "powerup", "misc"]
+                        )
+                        for tag in gametype:
+                            tag = COMMUNITY_TAG_TO_OFFICIAL.get(tag, tag)
+                            if tag not in ANY_VALID_TAGS:
+                                continue
+                            if tag in expected_tags:
+                                continue
+                            return {
+                                "score": -999,
+                                "removal": f"unexpectedtag",
+                                "addr": addr,
+                                "steamid": steamid,
+                                "name": server["name"],
+                                "players": server["players"],
+                                "max_players": server["max_players"],
+                                "bots": server["bots"],
+                                "map": map,
+                                "gametype": list(gametype),
+                            }
+
                     beta_expected = map in BETA_MAPS
                     if (
                         beta_expected
