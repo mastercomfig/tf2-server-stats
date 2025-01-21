@@ -1336,6 +1336,10 @@ async def query_runner(
                     ) as api_resp:
                         print(await api_resp.text())
                 print(len(new_servers))
+                if DEBUG and not DEBUG_SKIP_SERVERS:
+                    print(
+                        len([server for server in new_servers if get_score(server) > 0])
+                    )
         except Exception:
             traceback.print_exc()
 
