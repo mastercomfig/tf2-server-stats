@@ -330,9 +330,24 @@ def utcnow() -> datetime.datetime:
     return datetime.datetime.now(tz=TIMESTAMP_TIMEZONE)
 
 
+updated_thumbnails = False
+update_thumbnails = False
+
 MAP_THUMBNAILS: dict[str, str] = {}
 with open("map_thumbnails.json", "rb") as fp:
     MAP_THUMBNAILS = orjson.loads(fp.read())
+
+THUMBNAIL_OVERRIDES = {
+    "cp_canaveral_5cp": "https://wiki.teamfortress.com/w/images/3/39/Cp_canaveral_5cp.png",
+    "pd_atom_smash": "https://wiki.teamfortress.com/w/images/c/c5/Pd_atom_smash.png",
+    "pl_precipice_event_final": "https://wiki.teamfortress.com/w/images/1/13/Precipice_main.png",
+    "pd_mannsylvania": "https://wiki.teamfortress.com/w/images/0/09/Pd_mannsylvania.png",
+}
+
+for k, v in THUMBNAIL_OVERRIDES.items():
+    if k not in MAP_THUMBNAILS or not MAP_THUMBNAILS[k]:
+        updated_thumbnails = True
+        MAP_THUMBNAILS[k] = v
 
 EMPTY_DICT = {}
 
@@ -399,6 +414,8 @@ last_overview_resp = None
 next_overview_resp_time = 0
 last_items_game_resp = None
 last_server_version = 0
+
+THUMBNAIL_UPDATE_INTERVAL = datetime.timedelta(hours=24)
 
 
 async def req_items_game(
@@ -509,6 +526,8 @@ async def query_runner(
     comfig_session: aiohttp.ClientSession,
     teamwork_session: aiohttp.ClientSession,
 ):
+    global updated_thumbnails
+    global update_thumbnails
     server_params = {
         "key": STEAM_API_KEY,
         "format": "json",
@@ -536,6 +555,9 @@ async def query_runner(
     LAST_MONTH = 0
     pending_servers = []
     updated_servers = False
+
+    last_thumbnails_update = utcnow() - datetime.timedelta(hours=24)
+
     while True:
         next_query_interval = QUERY_INTERVAL + chaos(QUERY_INTERVAL_VARIANCE)
         items_game, updated, server_version = await req_items_game(
@@ -548,10 +570,9 @@ async def query_runner(
             updated = True
         try:
             if items_game:
+                map_gamemode = dict(BASE_GAME_MAPS)
                 if updated:
-                    updated_thumbnails = False
                     update_thumbnails = True
-                    map_gamemode = dict(BASE_GAME_MAPS)
                     gamemodes = {}
                     holiday_map_gamemode = defaultdict(dict)
                     matchmaking = items_game["matchmaking_categories"]
@@ -602,37 +623,58 @@ async def query_runner(
                                     gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
+
+                if not update_thumbnails:
+                    # if we aren't forcing an update because of a schema update, then we need to determine if we need to update otherwise
+                    is_missing = False
+                    for name in map_gamemode.keys():
+                        if name not in MAP_THUMBNAILS or not MAP_THUMBNAILS[name]:
+                            is_missing = True
+                            break
+
+                    if is_missing:
+                        if (
+                            utcnow() - last_thumbnails_update
+                            > THUMBNAIL_UPDATE_INTERVAL
+                        ):
+                            update_thumbnails = True
+
+                if update_thumbnails:
+                    update_thumbnails = False
+                    last_thumbnails_update = utcnow()
                     for name in map_gamemode.keys():
                         # if we don't have the map yet, or it's null
                         if name not in MAP_THUMBNAILS or not MAP_THUMBNAILS[name]:
-                            if update_thumbnails:
-                                async with teamwork_session.get(
-                                    f"/api/v1/map-stats/mapimages/{name}",
-                                    params={"key": TEAMWORK_API_KEY},
-                                ) as resp:
-                                    body = await resp.read()
-                                    try:
-                                        body = orjson.loads(body)
-                                        err = body.get("error")
-                                        if err:
-                                            if DEBUG:
-                                                print(err, name)
+                            async with teamwork_session.get(
+                                f"/api/v1/map-stats/mapimages/{name}",
+                                params={"key": TEAMWORK_API_KEY},
+                            ) as resp:
+                                body = await resp.read()
+                                try:
+                                    body = orjson.loads(body)
+                                    err = body.get("error")
+                                    if err:
+                                        if DEBUG:
+                                            print(err, name)
+                                        continue
+                                    MAP_THUMBNAILS[name] = body["thumbnail"]
+                                    if not MAP_THUMBNAILS[name]:
+                                        screenshots = body["screenshots"]
+                                        if not screenshots:
                                             continue
-                                        MAP_THUMBNAILS[name] = body["thumbnail"]
-                                        if not MAP_THUMBNAILS[name]:
-                                            screenshots = body["screenshots"]
-                                            if not screenshots:
-                                                continue
-                                            MAP_THUMBNAILS[name] = screenshots[0]
-                                        updated_thumbnails = True
-                                    except:
-                                        # bail out of the update due to errors
-                                        update_thumbnails = False
-                    if updated_thumbnails:
-                        with open("map_thumbnails.json", "wb") as fp:
-                            fp.write(
-                                orjson.dumps(MAP_THUMBNAILS, option=orjson.OPT_INDENT_2)
-                            )
+                                        MAP_THUMBNAILS[name] = screenshots[0]
+                                    updated_thumbnails = True
+                                except:
+                                    # bail out of the update due to errors
+                                    break
+
+                if updated_thumbnails:
+                    with open("map_thumbnails.json", "wb") as fp:
+                        fp.write(
+                            orjson.dumps(MAP_THUMBNAILS, option=orjson.OPT_INDENT_2)
+                        )
+
+                if updated or updated_thumbnails:
                     if not DEBUG:
                         async with comfig_session.post(
                             "/api/schema/update",
@@ -650,6 +692,8 @@ async def query_runner(
                             },
                         ) as api_resp:
                             print(await api_resp.text())
+
+                updated_thumbnails = False
 
                 try:
                     async with api_session.get(
