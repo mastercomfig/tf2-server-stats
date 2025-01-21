@@ -163,9 +163,11 @@ BASE_GAME_MAPS = {
     "koth_megalo": "koth",
     "pd_snowville_event": "alternative",
     "pd_galleria": "alternative",
-    "plr_highertower": "alternative",
-    "plr_highertower_extended": "alternative",
     "arena_perks": "arena",
+    "plr_cutter": "payload",
+    "vsh_maul": "alternative",
+    "vsh_outburst": "alternative",
+    "cp_freaky_fair": "alternative",
     # community map variants
     "cp_stoneyridge_rc2": "capture_point",
     "cp_ambush_rc5": "attack_defense",
@@ -195,7 +197,6 @@ BASE_GAME_MAPS = {
     "ctf_damnable_a4": "ctf",
     "cp_glassworks_rc7a": "capture_point",
     "cp_mist_rc1e": "capture_point",
-    "cp_overgrown_rc8": "capture_point",
     "cp_propaganda_b19": "capture_point",
     "cp_logjam_rc12": "capture_point",
     "cp_hazyfort_rc6": "capture_point",
@@ -207,8 +208,6 @@ BASE_GAME_MAPS = {
     "pl_rocksalt_v7": "payload",
     "pl_divulgence_b4b": "payload",
     "pl_metropolis_b7": "payload",
-    "pl_odyssey_b3": "payload",
-    "pl_embargo_b3": "payload",
     "pl_highwood_b19": "payload",
     "pl_midwest_rc1a": "payload",
     "pl_shoreleave_rc2": "payload",
@@ -221,7 +220,6 @@ BASE_GAME_MAPS = {
     "pl_outback_rc4": "payload",
     "pl_cactuscanyon_redux_final2": "payload",
     "pl_extinction_rc3": "payload",
-    "pl_patagonia_rc1b": "payload",
     "koth_lakeside_r2": "koth",
     "koth_highertower": "koth",
     "koth_hangar_rc5b": "koth",
@@ -237,6 +235,8 @@ BASE_GAME_MAPS = {
     "pd_salvador_b2": "alternative",
     "pd_salvador_b3c": "alternative",
     "plr_tdm_hightower_rc1": "alternative",
+    "plr_highertower": "alternative",
+    "plr_highertower_extended": "alternative",
     # refresh.tf, used a lot on Asia servers
     "cp_process_f12": "capture_point",
     "cp_process_f11": "capture_point",
@@ -342,6 +342,10 @@ THUMBNAIL_OVERRIDES = {
     "pd_atom_smash": "https://wiki.teamfortress.com/w/images/c/c5/Pd_atom_smash.png",
     "pl_precipice_event_final": "https://wiki.teamfortress.com/w/images/1/13/Precipice_main.png",
     "pd_mannsylvania": "https://wiki.teamfortress.com/w/images/0/09/Pd_mannsylvania.png",
+    "pl_odyssey": "https://wiki.teamfortress.com/w/images/4/48/Odyssey.png",
+    "ctf_turbine_winter": "https://wiki.teamfortress.com/w/images/b/ba/Ctf_turbine_winter.png",
+    "cp_carrier": "https://wiki.teamfortress.com/w/images/6/69/Cp_carrier.png",
+    "pl_vineyard": "https://wiki.teamfortress.com/w/images/5/52/Pl_vineyard.png",
 }
 
 for k, v in THUMBNAIL_OVERRIDES.items():
@@ -576,6 +580,7 @@ async def query_runner(
                     holiday_map_gamemode = defaultdict(dict)
                     matchmaking = items_game["matchmaking_categories"]
                     valid_types = set()
+
                     for category, details in matchmaking.items():
                         match_groups = details["valid_match_groups"]
                         for match_group, value in match_groups.items():
@@ -586,6 +591,7 @@ async def query_runner(
                                 valid_types.add(category)
                                 break
                     maps = items_game["maps"]
+
                     for gamemode, details in maps.items():
                         mm_type = details["mm_type"]
                         if mm_type not in valid_types and gamemode != "arena":
@@ -622,6 +628,8 @@ async def query_runner(
                                     gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
+
+                    map_gamemode = dict(sorted(map_gamemode.items()))
 
                 if not update_thumbnails:
                     # if we aren't forcing an update because of a schema update, then we need to determine if we need to update otherwise
