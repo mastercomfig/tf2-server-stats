@@ -535,7 +535,7 @@ async def query_runner(
         "filter": QUERY_FILTER,
     }
     gamemodes: dict[str, set[str]] = {}
-    map_gamemode: dict[str, str] = {}
+    map_gamemode: dict[str, str] = dict(BASE_GAME_MAPS)
     holiday_map_gamemode: dict[int, dict[str, str]] = defaultdict(dict)
     banned_ips = set(get_value("ips", default=[], table=ban_table))
     banned_ids = set(get_value("ids", default=[], table=ban_table))
@@ -570,7 +570,6 @@ async def query_runner(
             updated = True
         try:
             if items_game:
-                map_gamemode = dict(BASE_GAME_MAPS)
                 if updated:
                     update_thumbnails = True
                     gamemodes = {}
