@@ -522,16 +522,18 @@ def score_server(humans: int, max_players: int) -> float:
     new_total_players = new_humans
 
     real_max_players = max_players
-    if new_total_players + SERVER_HEADROOM > real_max_players:
+   
+    # server is already full, we can't go over
+    if new_total_players > real_max_players:
         return -100.0
+    
+    # if we don't have enough headroom, then penalize
+    if new_total_players > real_max_players - SERVER_HEADROOM:
+        return -0.3
 
     # aim to give every game a base population normalized to 24 max players
     if max_players > FULL_PLAYERS:
         max_players = FULL_PLAYERS
-
-    if new_humans > FULL_PLAYERS:
-        # if it's actually full it'll get caught by the headroom condition above.
-        new_humans = FULL_PLAYERS - 1
 
     # penalize a completely empty server
     if humans == 0:
