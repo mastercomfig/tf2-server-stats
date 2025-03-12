@@ -531,13 +531,13 @@ def score_server(humans: int, max_players: int) -> float:
     if new_total_players > real_max_players - SERVER_HEADROOM:
         return -0.3
 
-    # aim to give every game a base population normalized to 24 max players
-    if max_players > FULL_PLAYERS:
-        max_players = FULL_PLAYERS
-
     # penalize a completely empty server
     if humans == 0:
         return -0.3
+
+    # aim to give every game a base population normalized to 24 max players
+    if max_players > FULL_PLAYERS:
+        max_players = FULL_PLAYERS
 
     # get 1/3, round to nearest even for balanced teams
     count_low = to_nearest_even(max_players / 3)
