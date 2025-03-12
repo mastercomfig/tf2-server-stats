@@ -76,6 +76,7 @@ APP_FULL_NAME = "Team Fortress"
 MIN_PLAYER_CAP = 18
 MAX_PLAYER_CAP = 101
 FULL_PLAYERS = 24
+MAX_NORMAL_PLAYERS = 33
 
 SERVER_HEADROOM = 1
 
@@ -545,12 +546,14 @@ def score_server(humans: int, max_players: int) -> float:
     # this gets us: 18 (9v9) for 24 players, and 12 (6v6) for 18 players
     count_ideal = to_nearest_even(max_players * 0.72)
 
+    score_zero = -0.3
     score_low = 0.1
     score_ideal = 1.6
-    score_fuller = 0.2
+    score_fuller = 0.8
+    score_full = 0.2
 
     if new_humans <= count_low:
-        return lerp(0, count_low, 0.0, score_low, new_humans)
+        return lerp(0, count_low, score_zero, score_low, new_humans)
     elif new_humans <= count_ideal:
         return lerp(count_low, count_ideal, score_low, score_ideal, new_humans)
     elif new_humans <= max_players:
@@ -558,7 +561,7 @@ def score_server(humans: int, max_players: int) -> float:
         return lerp(count_ideal, max_players, score_ideal, score_fuller, new_humans)
     else:
         # score within the real bounds of the server, so we still give a bonus but less than our ideal 24 player match
-        return lerp(max_players, real_max_players, score_fuller, score_low, new_humans)
+        return lerp(max_players, real_max_players, score_fuller, score_full, new_humans)
 
 
 async def query_runner(
