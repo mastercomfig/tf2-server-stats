@@ -524,13 +524,13 @@ def score_server(humans: int, max_players: int) -> float:
 
     real_max_players = max_players
    
-    # server is already full, we can't go over
+    # we're going over max players, so can't join
     if new_total_players > real_max_players:
         return -100.0
     
     # if we don't have enough headroom, then penalize
     if new_total_players > real_max_players - SERVER_HEADROOM:
-        return -0.3
+        return -0.25
 
     # penalize a completely empty server
     if humans == 0:
