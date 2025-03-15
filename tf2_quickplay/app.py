@@ -277,8 +277,8 @@ TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
 player_count_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
-PLAYER_TREND_MIN = 0.5
-PLAYER_TREND_MAX = 0.85
+PLAYER_TREND_MIN = 0.2 # was 0.5
+PLAYER_TREND_MAX = 0.5 # was 0.85
 
 PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
 PLAYER_TREND_COUNT_MAX = 18
