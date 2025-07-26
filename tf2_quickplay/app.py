@@ -179,7 +179,7 @@ BASE_GAME_MAPS = {
     "pl_vineyard_rc8b": "payload",
     "pl_eruption_b13": "payload",
     "pl_eruption_b14": "payload",
-    "koth_bagel_rc10": "koth",
+    "koth_bagel_rc11": "koth",
     "koth_brine_rc3a": "koth",
     "koth_camp_saxton_b1": "koth",
     "koth_maple_ridge_rc2": "koth",
@@ -221,13 +221,14 @@ BASE_GAME_MAPS = {
     "koth_hangar_rc5b": "koth",
     "koth_soot_final1": "koth",
     "koth_product_final": "koth",
-    "koth_clearcut_b15d": "koth",
+    "koth_clearcut_b17": "koth",
     "koth_jamram_rc2b": "koth",
     "rd_asteroid_redux_b1": "alternative",
     "pd_salvador_b3c": "alternative",
     "plr_tdm_hightower_rc1": "alternative",
     "plr_highertower": "alternative",
     "plr_highertower_extended": "alternative",
+    "pd_circus": "alternative",
     # refresh.tf, used a lot on Asia servers
     "cp_process_f12": "capture_point",
     "cp_process_f11": "capture_point",
@@ -257,10 +258,13 @@ if DEBUG:
         unversion_name_split = name.split("_")
         if len(unversion_name_split) > 2:
             unversion_name = "_".join(unversion_name_split[:-1])
+            COMMUNITY_MAPS_UNVERSIONED.add(unversion_name)
 
 BETA_MAPS = set(["rd_asteroid", "pl_cactuscanyon"])
 
 DEFAULT_MAP_PREFIXES = set(["koth", "ctf", "cp", "tc", "pl", "plr", "sd", "pd"])
+
+ALLOWED_CUSTOM_MAP_PREFIXES = {"jump": "jump", "surf": "jump"}
 
 PREFIX_TO_GAMEMODE = {
     "ctf": "ctf",
@@ -277,8 +281,8 @@ TIMESTAMP_TIMEZONE = datetime.timezone.utc
 
 player_count_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
-PLAYER_TREND_MIN = 0.2 # was 0.5
-PLAYER_TREND_MAX = 0.5 # was 0.85
+PLAYER_TREND_MIN = 0.2  # was 0.5
+PLAYER_TREND_MAX = 0.5  # was 0.85
 
 PLAYER_TREND_COUNT_LOW_POINT_LIMIT = 12
 PLAYER_TREND_COUNT_MAX = 18
@@ -533,11 +537,11 @@ def score_server(humans: int, max_players: int) -> float:
     new_total_players = new_humans
 
     real_max_players = max_players
-   
+
     # we're going over max players, so can't join
     if new_total_players > real_max_players:
         return -100.0
-    
+
     # if we don't have enough headroom, then penalize
     if new_total_players > real_max_players - SERVER_HEADROOM:
         return -0.25
@@ -897,9 +901,11 @@ async def query_runner(
                     map = server.get("map")
                     if not map:
                         return None
-                    if map not in map_gamemode:
+                    map_split = map.split("_")
+                    prefix = map_split[0]
+                    forced_custom_map = prefix in ALLOWED_CUSTOM_MAP_PREFIXES
+                    if map not in map_gamemode and not forced_custom_map:
                         if DEBUG and not DEBUG_SKIP_SERVERS:
-                            prefix = map.split("_")[0]
                             if prefix == "arena":
                                 return {
                                     "score": -999,
@@ -938,9 +944,8 @@ async def query_runner(
                             if prefix in DEFAULT_MAP_PREFIXES and not map.startswith(
                                 "cp_orange"
                             ):
-                                unversion_name_split = map.split("_")
-                                if len(unversion_name_split) > 2:
-                                    unversion_name = "_".join(unversion_name_split[:-1])
+                                if len(map_split) > 2:
+                                    unversion_name = "_".join(map_split[:-1])
                                     if unversion_name in COMMUNITY_MAPS_UNVERSIONED:
                                         return {
                                             "score": -999,
@@ -1088,30 +1093,33 @@ async def query_runner(
                             }
                         else:
                             return None
-                    # is it any of the gamemodes we want?
-                    found_valid_gametype = (
-                        len(gametype.intersection(ANY_VALID_TAGS)) > 0
-                    )
-                    if not found_valid_gametype:
-                        if DEBUG and not DEBUG_SKIP_SERVERS:
-                            return {
-                                "score": -999,
-                                "removal": "nogametype",
-                                "addr": addr,
-                                "steamid": steamid,
-                                "name": server["name"],
-                                "players": server["players"],
-                                "max_players": server["max_players"],
-                                "bots": server["bots"],
-                                "map": map,
-                                "gametype": list(gametype),
-                            }
-                        else:
-                            return None
+                    if not forced_custom_map:
+                        # is it any of the gamemodes we want?
+                        found_valid_gametype = (
+                            len(gametype.intersection(ANY_VALID_TAGS)) > 0
+                        )
+                        if not found_valid_gametype:
+                            if DEBUG and not DEBUG_SKIP_SERVERS:
+                                return {
+                                    "score": -999,
+                                    "removal": "nogametype",
+                                    "addr": addr,
+                                    "steamid": steamid,
+                                    "name": server["name"],
+                                    "players": server["players"],
+                                    "max_players": server["max_players"],
+                                    "bots": server["bots"],
+                                    "map": map,
+                                    "gametype": list(gametype),
+                                }
+                            else:
+                                return None
                     # is it the gamemode we want?
-                    expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
+                    if forced_custom_map:
+                        expected_gamemode = None
+                    else:
+                        expected_gamemode = GAMEMODE_TO_TAG.get(map_gamemode[map])
                     if not expected_gamemode:
-                        prefix = map.split("_")[0]
                         prefix_gamemode = PREFIX_TO_GAMEMODE.get(prefix)
                         if prefix_gamemode:
                             expected_gamemode = GAMEMODE_TO_TAG.get(prefix_gamemode)
