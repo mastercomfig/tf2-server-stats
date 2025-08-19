@@ -544,7 +544,7 @@ def score_server(humans: int, max_players: int) -> float:
 
     # if we don't have enough headroom, then penalize
     if new_total_players > real_max_players - SERVER_HEADROOM:
-        return -0.25
+        return -0.05
 
     # penalize a completely empty server
     if humans == 0:
