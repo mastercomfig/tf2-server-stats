@@ -476,6 +476,7 @@ THUMBNAIL_OVERRIDES = {
     # community maps
     "pl_sludepit_final4": "https://wiki.teamfortress.com/w/images/2/27/Sludgepit4.png",
     "koth_slaughter_rc1": "https://wiki.teamfortress.com/w/images/1/19/Slaughter_Main_Point.png",
+    "koth_coalplant_b8": "https://wiki.teamfortress.com/w/images/5/54/Koth_coalplant_b5_1.jpg",
     "plr_highertower_extended": "https://steamuserimages-a.akamaihd.net/ugc/939447123270412695/075848DC806626956889F2768D4E6D184ECC9CDB/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "koth_camp_saxton_b1": "https://steamuserimages-a.akamaihd.net/ugc/2046366098090407374/2C88F1674AC73A5D1F5C97717277946E3B8BEE4E/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "koth_synthetic_rc6a": "https://wiki.teamfortress.com/w/images/b/b1/Koth_synthetic.jpg",
