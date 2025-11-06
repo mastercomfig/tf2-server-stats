@@ -486,6 +486,8 @@ THUMBNAIL_OVERRIDES = {
     "pl_divulgence_b4b": "https://tf2maps.net/attachments/20220819102834_1-jpg.185416/",
     "pl_stallberg_rc3": "https://tf2maps.net/attachments/1-jpg.109719/",
     "pl_oasis_rc3": "https://tf2maps.net/attachments/20180418214049_1-jpg.76498/",
+    "pl_farmstead_rc4": "https://tf2maps.net/attachments/screenshot-51-png.3249/",
+    "pl_farmstead_rc6": "https://tf2maps.net/attachments/screenshot-51-png.3249/",
     "cp_sultry_b8a": "https://steamuserimages-a.akamaihd.net/ugc/2049744430627396988/E93F0C177FA9A5347D5FC8C8E6F71E210B14FFB7/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "cp_hazyfort_rc6": "https://tf2maps.net/attachments/20180415084648_1-jpg.75808/",
     "cp_logjam_rc12": "https://steamuserimages-a.akamaihd.net/ugc/448458176288634169/9E5D28B8DB7A40EA08BE43103FB282B8822D8D89/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
