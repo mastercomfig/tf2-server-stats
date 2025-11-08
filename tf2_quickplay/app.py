@@ -490,7 +490,7 @@ THUMBNAIL_OVERRIDES = {
     "cp_coilblaze_rc8": "https://images.steamusercontent.com/ugc/2098172079535187275/87B7788E62CED628D62D13860C62E18A6E1C2969/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "cp_coppice_rc1": "https://tf2maps.net/attachments/20210815225331_1-jpg.156390/",
     "cp_drypine_rc1": "https://images.steamusercontent.com/ugc/2077891722659654626/F8D2BDEE34C8AE1DE66EF3E3348AB8418A551B65/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
-    "cp_france_rc4a": "https://images.steamusercontent.com/ugc/2029477056647520647/B5E6791DE0BE2F7D124073621B39FCAA102E5F93/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+    "cp_france_rc4c": "https://images.steamusercontent.com/ugc/2029477056647520647/B5E6791DE0BE2F7D124073621B39FCAA102E5F93/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "cp_hazyfort_rc6": "https://tf2maps.net/attachments/20180415084648_1-jpg.75808/",
     "cp_holdout_rc1d": "https://images.steamusercontent.com/ugc/2476493472185091967/5291A9C730F3FA74D225C6F3DD9FCB3901F469C6/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "cp_holdout_rc2": "https://images.steamusercontent.com/ugc/2476493472185091967/5291A9C730F3FA74D225C6F3DD9FCB3901F469C6/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
