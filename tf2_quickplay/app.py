@@ -174,6 +174,7 @@ BASE_GAME_MAPS = {
     "ctf_2fort_improved_a8f1": "ctf",
     "cp_stoneyridge_rc2": "capture_point",
     "cp_ambush_rc5": "attack_defense",
+    "cp_firewatch_b4": "attack_defense",
     "cp_france_rc4c": "attack_defense",
     "pl_cornwater_b8d": "payload",
     "pl_eruption_b14": "payload",
