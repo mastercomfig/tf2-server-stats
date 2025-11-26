@@ -258,6 +258,7 @@ BASE_GAME_MAPS = {
     "cp_wildcat_rc1a": "attack_defense",
     "pl_blastforge_rc1": "payload",
     "pl_blastpitt_rc3": "payload",
+    "pl_borax_final": "payload",
     "pl_borax_rc2": "payload",
     "pl_cactuscanyon_redux_final2": "payload",
     "pl_candyland_b2b": "payload",
