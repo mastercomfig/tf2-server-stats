@@ -85,6 +85,7 @@ rep_table = DB.table("rep")
 ban_table = DB.table("bans")
 geo_table = DB.table("geo")
 anycast_table = DB.table("anycast")
+extras_table = DB.table("extras")
 
 HOLIDAYS = {"christmas": 12, "halloween": 10}
 
@@ -160,6 +161,7 @@ BASE_GAME_MAPS = {
     "pl_chilly": "payload",
     "pl_coal_event": "payload",
     "pl_wutville_event": "payload",
+    "plr_matterhorn": "alternative",
     "koth_maple_ridge_event": "koth",
     "koth_megalo": "koth",
     "pd_snowville_event": "alternative",
@@ -348,6 +350,7 @@ BASE_GAME_MAPS = {
     "plr_highertower": "alternative",
     "plr_highertower_extended": "alternative",
     "pd_circus": "alternative",
+    "ctf_turbine_remake": "ctf",
     # some more custom misc maps
     "vsh_facility_rc4": "alternative",
     "vsh_graygravelhq_rc0": "alternative",
@@ -593,6 +596,7 @@ THUMBNAIL_OVERRIDES = {
     "vsh_facility_rc4": "https://tf2maps.net/attachments/1-jpg.234751/",
     "vsh_graygravelhq_rc0": "https://steamuserimages-a.akamaihd.net/ugc/2469736339902168708/107831A973AAC970BD8278182DA9BA13D25C2D27/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "vsh_hightower_rc1": "https://tf2maps.net/attachments/1-jpg.226290/",
+    "ctf_turbine_remake": "https://wiki.teamfortress.com/w/images/d/dc/CTF_Turbine_Center.png",
 }
 
 for k, v in THUMBNAIL_OVERRIDES.items():
@@ -783,20 +787,24 @@ async def query_runner(
 ):
     global updated_thumbnails
     global update_thumbnails
+    # steam query params
     server_params = {
         "key": STEAM_API_KEY,
         "format": "json",
         "limit": QUERY_LIMIT,
         "filter": QUERY_FILTER,
     }
+    # data
     gamemodes: dict[str, set[str]] = {}
     map_gamemode: dict[str, str] = dict(BASE_GAME_MAPS)
     holiday_map_gamemode: dict[int, dict[str, str]] = defaultdict(dict)
+    # tables
     banned_ips = set(get_value("ips", default=[], table=ban_table))
     banned_ids = set(get_value("ids", default=[], table=ban_table))
     banned_name_search = get_value("names", default=[], table=ban_table)
     banned_tags = set(get_value("tags", default=[], table=ban_table))
     anycast_ips = set(get_value("ips", default=[], table=anycast_table))
+    # get information about the querier
     my_ip = "127.0.0.1"
     async with aiohttp.ClientSession("https://api.ipify.org") as ip_session:
         async with ip_session.get("/?format=json") as resp:
@@ -807,12 +815,30 @@ async def query_runner(
     my_lon = my_city.location.longitude
     my_lat = my_city.location.latitude
     my_point = (my_lat, my_lon)
+
+    # initial values
     LAST_MONTH = 0
     pending_servers = []
     updated_servers = False
 
     last_thumbnails_update = utcnow() - datetime.timedelta(hours=24)
 
+    # extra rules table
+    ip_to_rules_group = {}
+    id_to_rules_group = {}
+    rules_groups = []
+    group_idx = 0
+    for rule_group in get_value("rule_groups", default=[], table=extras_table):
+        ips = rule_group.get("ips", [])
+        ids = rule_group.get("ids", [])
+        for ip in ips:
+            ip_to_rules_group[ip] = group_idx
+        for steamid in ids:
+            id_to_rules_group[steamid] = group_idx
+        rules_groups.append(rule_group.get("rules", {}))
+        group_idx += 1
+
+    # main loop
     while True:
         next_query_interval = QUERY_INTERVAL + chaos(QUERY_INTERVAL_VARIANCE)
         items_game, updated, server_version = await req_items_game(
@@ -820,6 +846,7 @@ async def query_runner(
         )
         now = utcnow()
         month = now.month
+        # if the month changed, we need to refresh our data parse, since holidays change per month
         if month != LAST_MONTH:
             LAST_MONTH = month
             updated = True
@@ -886,10 +913,12 @@ async def query_runner(
                     # if we aren't forcing an update because of a schema update, then we need to determine if we need to update otherwise
                     is_missing = False
                     for name in map_gamemode.keys():
+                        # the thumbnail is missing for this map, so we need to check if the thumbnail is available now.
                         if name not in MAP_THUMBNAILS or not MAP_THUMBNAILS[name]:
                             is_missing = True
                             break
 
+                    # if we are missing any thumbnails, try to update them every update interval
                     if is_missing:
                         if (
                             utcnow() - last_thumbnails_update
@@ -897,6 +926,7 @@ async def query_runner(
                         ):
                             update_thumbnails = True
 
+                # if we need to update the thumbnails, do it
                 if update_thumbnails:
                     update_thumbnails = False
                     last_thumbnails_update = utcnow()
@@ -926,12 +956,14 @@ async def query_runner(
                                     # bail out of the update due to errors
                                     break
 
+                # if we updated any map thumbnails, cache them in the file
                 if updated_thumbnails:
                     with open("map_thumbnails.json", "wb") as fp:
                         fp.write(
                             orjson.dumps(MAP_THUMBNAILS, option=orjson.OPT_INDENT_2)
                         )
 
+                # if we updated any schema data, update it in the database for web app reference
                 if updated or updated_thumbnails:
                     if not DEBUG:
                         async with comfig_session.post(
@@ -953,6 +985,7 @@ async def query_runner(
 
                 updated_thumbnails = False
 
+                # get server list from Steam API
                 try:
                     async with api_session.get(
                         "/IGameServersService/GetServerList/v1/",
@@ -1225,6 +1258,17 @@ async def query_runner(
                             }
                         else:
                             return None
+
+                    rules = {}
+                    rules_group = id_to_rules_group.get(steamid, -1)
+                    if rules_group < 0:
+                        rules_group = ip_to_rules_group.get(ip, -1)
+                    if rules_group >= 0:
+                        rules = rules_groups[rules_group]
+                    rule_flags = set(rules.get("flags", []))
+
+                    quickplay_bonus += rules.get("score_adj", 0)
+
                     # normalize name
                     name = server["name"]
                     lower_name = name.lower()
@@ -1233,6 +1277,8 @@ async def query_runner(
                     if not gametype:
                         return None
                     gametype = set(gametype.lower().split(","))
+                    for tag_exc in rules.get("tags_exc", []):
+                        gametype.discard(tag_exc)
                     if "rtd" not in gametype:
                         if "rtd" in lower_name:
                             gametype.add("rtd")
@@ -1256,7 +1302,11 @@ async def query_runner(
                         if any((x in lower_name for x in NO_CAP_LIKELY_NAME)):
                             gametype.add("nocap")
                     # is lying about max players?
-                    if max_players > 25 and "increased_maxplayers" not in gametype:
+                    if (
+                        max_players > 25
+                        and "increased_maxplayers" not in gametype
+                        and "ignore_maxplayers_tag" not in rule_flags
+                    ):
                         if DEBUG and not DEBUG_SKIP_SERVERS:
                             return {
                                 "score": -999,
@@ -1272,7 +1322,11 @@ async def query_runner(
                             }
                         else:
                             return None
-                    if max_players <= 24 and "increased_maxplayers" in gametype:
+                    if (
+                        max_players <= 24
+                        and "increased_maxplayers" in gametype
+                        and "ignore_maxplayers_tag" not in rule_flags
+                    ):
                         if DEBUG and not DEBUG_SKIP_SERVERS:
                             return {
                                 "score": -999,
@@ -1293,7 +1347,7 @@ async def query_runner(
                         found_valid_gametype = (
                             len(gametype.intersection(ANY_VALID_TAGS)) > 0
                         )
-                        if not found_valid_gametype:
+                        if not found_valid_gametype and "ignore_tags" not in rule_flags:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
@@ -1323,6 +1377,7 @@ async def query_runner(
                         expected_gamemode
                         and expected_gamemode not in gametype
                         and "arena" not in gametype
+                        and "ignore_tags" not in rule_flags
                     ):
                         if DEBUG and not DEBUG_SKIP_SERVERS:
                             return {
@@ -1347,6 +1402,8 @@ async def query_runner(
                             [expected_gamemode, "arena", "powerup", "misc"]
                         )
                         for tag in gametype:
+                            if "ignore_tags" in rule_flags:
+                                break
                             tag = COMMUNITY_TAG_TO_OFFICIAL.get(tag, tag)
                             if tag not in ANY_VALID_TAGS:
                                 continue
@@ -1355,7 +1412,7 @@ async def query_runner(
                             if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
                                     "score": -999,
-                                    "removal": f"unexpectedtag",
+                                    "removal": "unexpectedtag",
                                     "addr": addr,
                                     "steamid": steamid,
                                     "name": server["name"],
@@ -1392,7 +1449,7 @@ async def query_runner(
                             return None
                     # check for tag errors
                     found_valid_gametype = len(gametype.intersection(banned_tags)) < 1
-                    if not found_valid_gametype:
+                    if not found_valid_gametype and "ignore_tags" not in rule_flags:
                         if DEBUG and not DEBUG_SKIP_SERVERS:
                             return {
                                 "score": -999,
@@ -1619,7 +1676,7 @@ async def query_runner(
 def handle_geoip(geoipDb, edition):
     if geoipDb.exists():
         diff = utcnow().timestamp() - geoipDb.stat().st_mtime
-        if diff / 24 / 3600 / 1000 <= 30:
+        if diff / 24 / 3600 <= 30:
             return True
     archive_name = f"./{edition}.tar.gz"
     urllib.request.urlretrieve(
