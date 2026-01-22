@@ -461,7 +461,7 @@ THUMBNAIL_OVERRIDES = {
     "koth_demolition": "https://wiki.teamfortress.com/w/images/1/19/Koth_demolition.png",
     "koth_mannhole": "https://wiki.teamfortress.com/w/images/9/91/Koth_mannhole.png",
     "koth_megaton": "https://steamuserimages-a.akamaihd.net/ugc/2524912417369499775/A55CECB1743214A09B0EC0DE2D7561A5591C3B4E/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
-    "koth_overcast_final": "https://wiki.teamfortress.com/w/images/thumb/8/8f/Koth_overcast_final.png/1024px-Koth_overcast_final.png",
+    "koth_overcast_final": "https://wiki.teamfortress.com/w/images/8/8f/Koth_overcast_final.png",
     "koth_snowtower": "https://wiki.teamfortress.com/w/images/4/47/Koth_snowtower.png",
     "pd_atom_smash": "https://wiki.teamfortress.com/w/images/c/c5/Pd_atom_smash.png",
     "pd_circus": "https://wiki.teamfortress.com/w/images/4/48/Pd_circus.png",
