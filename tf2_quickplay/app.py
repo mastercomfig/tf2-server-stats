@@ -424,6 +424,14 @@ NO_CAP_LIKELY_NAME = [
     "duel",
     "tdm",
 ]
+FAST_RESPAWN_LIKELY_NAME = ["fast resp", "fastresp", "fast:resp"]
+FAST_RESPAWN_LIKELY_GAMETYPE = [
+    "norespawntim",
+    "fastrespawn",
+    "fastresp",
+    "instresp",
+    "respawns",
+]
 
 shuffle_score_history = cachetools.TTLCache(maxsize=4000, ttl=60 * 60)
 
@@ -1296,11 +1304,16 @@ async def query_runner(
                     if "classlimits" not in gametype:
                         if "uncletopia" in lower_name:
                             gametype.add("classlimits")
-                    if any((x in gametype for x in NO_CAP_LIKELY_GAMETYPE)):
-                        gametype.add("nocap")
                     if "nocap" not in gametype:
-                        if any((x in lower_name for x in NO_CAP_LIKELY_NAME)):
+                        if any((x in gametype for x in NO_CAP_LIKELY_GAMETYPE)):
                             gametype.add("nocap")
+                        elif any((x in lower_name for x in NO_CAP_LIKELY_NAME)):
+                            gametype.add("nocap")
+                    if "norespawntime" not in gametype:
+                        if any((x in gametype for x in FAST_RESPAWN_LIKELY_GAMETYPE)):
+                            gametype.add("norespawntime")
+                        elif any((x in lower_name for x in FAST_RESPAWN_LIKELY_NAME)):
+                            gametype.add("norespawntime")
                     forced_tags = rules.get("forced_tags")
                     if forced_tags:
                         gametype.update(forced_tags)
