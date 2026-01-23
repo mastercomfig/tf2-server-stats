@@ -1301,6 +1301,18 @@ async def query_runner(
                     if "nocap" not in gametype:
                         if any((x in lower_name for x in NO_CAP_LIKELY_NAME)):
                             gametype.add("nocap")
+                    forced_tags = rules.get("forced_tags")
+                    if forced_tags:
+                        gametype.update(forced_tags)
+                    tag_rules = rules.get("name_to_tags")
+                    if tag_rules:
+                        for pattern, tags in tag_rules.items():
+                            if pattern in lower_name:
+                                for tag in tags:
+                                    if tag.startswith("-"):
+                                        gametype.discard(tag[1:])
+                                    else:
+                                        gametype.add(tag)
                     # is lying about max players?
                     if (
                         max_players > 25
