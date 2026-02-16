@@ -11,6 +11,7 @@ import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
+from typing import TypedDict
 
 import a2s
 import aiohttp
@@ -444,7 +445,10 @@ updated_thumbnails = False
 update_thumbnails = False
 
 MAP_THUMBNAILS: dict[str, str] = {}
-with open("map_thumbnails.json", "rb") as fp:
+MAP_THUMBNAILS_PATH = Path("map_thumbnails.json")
+if not MAP_THUMBNAILS_PATH.exists():
+    MAP_THUMBNAILS_PATH.write_bytes(b"{}")
+with open(MAP_THUMBNAILS_PATH, "rb") as fp:
     MAP_THUMBNAILS = orjson.loads(fp.read())
 
 THUMBNAIL_OVERRIDES = {
@@ -611,6 +615,39 @@ for k, v in THUMBNAIL_OVERRIDES.items():
     if k not in MAP_THUMBNAILS or MAP_THUMBNAILS[k] != v:
         updated_thumbnails = True
         MAP_THUMBNAILS[k] = v
+
+
+class MapOverviewScreenContext(TypedDict):
+    screenHeight: int
+    scale: int
+    screenWidth: int
+
+
+class MapOverviewLocationContext(TypedDict):
+    y: float
+    x: float
+    z: float
+
+
+class MapOverview(TypedDict):
+    image: str
+    screen: MapOverviewScreenContext
+    location: MapOverviewLocationContext
+
+
+MAP_OVERVIEWS: dict[str, MapOverview] = {}
+MAP_OVERVIEWS_PATH = Path("map_overviews.json")
+if not MAP_OVERVIEWS_PATH.exists():
+    MAP_OVERVIEWS_PATH.write_bytes(b"{}")
+with open(MAP_OVERVIEWS_PATH, "rb") as fp:
+    MAP_OVERVIEWS = orjson.loads(fp.read())
+
+OVERVIEW_OVERRIDES = {}
+
+for k, v in OVERVIEW_OVERRIDES.items():
+    if k not in MAP_OVERVIEWS or MAP_OVERVIEWS[k] != v:
+        updated_thumbnails = True
+        MAP_OVERVIEWS[k] = v
 
 EMPTY_DICT = {}
 
@@ -804,6 +841,8 @@ async def query_runner(
     }
     # data
     gamemodes: dict[str, set[str]] = {}
+    map_name_to_defidx: dict[str, int] = {}
+    map_defidx_to_name: dict[int, str] = {}
     map_gamemode: dict[str, str] = dict(BASE_GAME_MAPS)
     holiday_map_gamemode: dict[int, dict[str, str]] = defaultdict(dict)
     # tables
@@ -864,9 +903,9 @@ async def query_runner(
                     update_thumbnails = True
                     gamemodes = {}
                     holiday_map_gamemode = defaultdict(dict)
+
                     matchmaking = items_game["matchmaking_categories"]
                     valid_types = set()
-
                     for category, details in matchmaking.items():
                         match_groups = details["valid_match_groups"]
                         for match_group, value in match_groups.items():
@@ -876,8 +915,8 @@ async def query_runner(
                             ):
                                 valid_types.add(category)
                                 break
-                    maps = items_game["maps"]
 
+                    maps = items_game["maps"]
                     for gamemode, details in maps.items():
                         mm_type = details["mm_type"]
                         if mm_type not in valid_types and gamemode != "arena":
@@ -914,8 +953,18 @@ async def query_runner(
                                     gamemodes[mm_type] = gamemode_maps
                         else:
                             gamemodes[gamemode] = gamemode_maps
-
                     map_gamemode = dict(sorted(map_gamemode.items()))
+
+                    map_name_to_defidx = {}
+                    map_defidx_to_name = {}
+                    map_list = items_game["master_maps_list"]
+                    for map_def_idx, map in map_list.items():
+                        if map.get("statsidentifier") is not None:
+                            map_def_idx = map["statsidentifier"]
+                        map_def_idx = int(map_def_idx)
+                        map_name = map["name"]
+                        map_name_to_defidx[map_name] = map_def_idx
+                        map_defidx_to_name[map_def_idx] = map_name
 
                 if not update_thumbnails:
                     # if we aren't forcing an update because of a schema update, then we need to determine if we need to update otherwise
@@ -925,8 +974,12 @@ async def query_runner(
                         if name not in MAP_THUMBNAILS or not MAP_THUMBNAILS[name]:
                             is_missing = True
                             break
+                        # the overview is missing for this map, so we need to check if the overview is available now.
+                        if name not in MAP_OVERVIEWS or not MAP_OVERVIEWS[name]:
+                            is_missing = True
+                            break
 
-                    # if we are missing any thumbnails, try to update them every update interval
+                    # if we are missing any thumbnails/overviews, try to update them every update interval
                     if is_missing:
                         if (
                             utcnow() - last_thumbnails_update
@@ -940,7 +993,12 @@ async def query_runner(
                     last_thumbnails_update = utcnow()
                     for name in map_gamemode.keys():
                         # if we don't have the map yet, or it's null
-                        if name not in MAP_THUMBNAILS or not MAP_THUMBNAILS[name]:
+                        if (
+                            name not in MAP_THUMBNAILS
+                            or not MAP_THUMBNAILS[name]
+                            or name not in MAP_OVERVIEWS
+                            or not MAP_OVERVIEWS[name]
+                        ):
                             async with teamwork_session.get(
                                 f"/api/v1/map-stats/mapimages/{name}",
                                 params={"key": TEAMWORK_API_KEY},
@@ -953,43 +1011,60 @@ async def query_runner(
                                         if DEBUG:
                                             print(err, name)
                                         continue
-                                    MAP_THUMBNAILS[name] = body["thumbnail"]
+                                    MAP_THUMBNAILS[name] = body.get("thumbnail")
                                     if not MAP_THUMBNAILS[name]:
-                                        screenshots = body["screenshots"]
-                                        if not screenshots:
-                                            continue
-                                        MAP_THUMBNAILS[name] = screenshots[0]
-                                    updated_thumbnails = True
+                                        screenshots = body.get("screenshots")
+                                        if screenshots:
+                                            MAP_THUMBNAILS[name] = screenshots[0]
+                                    leveloverview = body.get("leveloverview")
+                                    if leveloverview:
+                                        MAP_OVERVIEWS[name] = {
+                                            "image": leveloverview["image"],
+                                            "screen": leveloverview["context"][0],
+                                            "location": leveloverview["context"][1],
+                                        }
+                                    else:
+                                        MAP_OVERVIEWS[name] = None
+                                    if MAP_THUMBNAILS[name] or MAP_OVERVIEWS[name]:
+                                        updated_thumbnails = True
                                 except:
                                     # bail out of the update due to errors
                                     break
 
                 # if we updated any map thumbnails, cache them in the file
                 if updated_thumbnails:
-                    with open("map_thumbnails.json", "wb") as fp:
+                    with open(MAP_THUMBNAILS_PATH, "wb") as fp:
                         fp.write(
                             orjson.dumps(MAP_THUMBNAILS, option=orjson.OPT_INDENT_2)
+                        )
+                    with open(MAP_OVERVIEWS_PATH, "wb") as fp:
+                        fp.write(
+                            orjson.dumps(MAP_OVERVIEWS, option=orjson.OPT_INDENT_2)
                         )
 
                 # if we updated any schema data, update it in the database for web app reference
                 if updated or updated_thumbnails:
+                    schema = {
+                        "map_gamemodes": map_gamemode,
+                        "map_thumbnails": MAP_THUMBNAILS,
+                        "map_name_to_defidx": map_name_to_defidx,
+                        "map_defidx_to_name": map_defidx_to_name,
+                        "map_overview": MAP_OVERVIEWS,
+                        "gamemodes": {
+                            k: list(v)
+                            for k, v in gamemodes.items()
+                            if k not in DEFAULT_GAMEMODES
+                        },
+                    }
                     if not DEBUG:
                         async with comfig_session.post(
                             "/api/schema/update",
                             headers={"Authorization": f"Bearer {COMFIG_API_KEY}"},
-                            json={
-                                "schema": {
-                                    "map_gamemodes": map_gamemode,
-                                    "map_thumbnails": MAP_THUMBNAILS,
-                                    "gamemodes": {
-                                        k: list(v)
-                                        for k, v in gamemodes.items()
-                                        if k not in DEFAULT_GAMEMODES
-                                    },
-                                }
-                            },
+                            json={"schema": schema},
                         ) as api_resp:
                             print(await api_resp.text())
+                    else:
+                        print("Schema updated: ", schema)
 
                 updated_thumbnails = False
 
