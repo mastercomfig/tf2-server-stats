@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tf2-server-stats"
-version = "0.1.0"
+version = "0.2.0"
 description = "Collecting data for TF2 server stats"
 authors = ["mastercoms <mastercoms@tuta.io>"]
 license = "MIT"
