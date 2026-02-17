@@ -961,9 +961,9 @@ async def query_runner(
                     for map_def_idx, map in map_list.items():
                         if map.get("statsidentifier") is not None:
                             map_def_idx = map["statsidentifier"]
-                        map_def_idx = int(map_def_idx)
+                        map_def_num = int(map_def_idx)
                         map_name = map["name"]
-                        map_name_to_defidx[map_name] = map_def_idx
+                        map_name_to_defidx[map_name] = map_def_num
                         map_defidx_to_name[map_def_idx] = map_name
 
                 if not update_thumbnails:
