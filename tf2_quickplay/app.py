@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import io
 import math
 import os
 import random
@@ -20,6 +21,7 @@ import geoip2
 import geoip2.database
 import geopy.distance
 import orjson
+import PIL
 import tinydb
 import vdf
 from dotenv import load_dotenv
@@ -821,6 +823,28 @@ def score_server(humans: int, max_players: int) -> float:
         # score within the real bounds of the server, so we still give a bonus but less than our ideal 24 player match
         return lerp(max_players, real_max_players, score_fuller, score_full, new_humans)
 
+async def is_valid_image_url(url: str, session: aiohttp.ClientSession) -> bool:
+    if not url:
+        return False
+        
+    try:
+        async with session.get(url) as resp:
+            resp.raise_for_status()
+                
+            # Read the bytes into memory
+            image_bytes = await resp.read()
+            
+            # Use Pillow to verify the image structure
+            try:
+                img = PIL.Image.open(io.BytesIO(image_bytes))
+                img.verify()  # Raises an exception if the image is broken/corrupt
+                return True
+            except Exception:
+                return False
+    except Exception:
+        # Catch connection errors, timeouts, etc.
+        return False
+
 
 async def query_runner(
     geoasn: geoip2.database.Reader,
@@ -1011,25 +1035,40 @@ async def query_runner(
                                         if DEBUG:
                                             print(err, name)
                                         continue
-                                    MAP_THUMBNAILS[name] = body.get("thumbnail")
-                                    if not MAP_THUMBNAILS[name]:
+                                    thumbnail = body.get("thumbnail")
+                                    if thumbnail:
                                         screenshots = body.get("screenshots")
                                         if screenshots:
-                                            MAP_THUMBNAILS[name] = screenshots[0]
+                                            thumbnail = screenshots[0]
+                                    if thumbnail:
+                                        if await is_valid_image_url(thumbnail):
+                                            MAP_THUMBNAILS[name] = thumbnail
+                                        else:
+                                            MAP_THUMBNAILS[name] = None
+                                        updated_thumbnails = True
                                     leveloverview = body.get("leveloverview")
                                     if leveloverview:
-                                        MAP_OVERVIEWS[name] = {
-                                            "image": leveloverview["image"],
-                                            "screen": leveloverview["context"][0],
-                                            "location": leveloverview["context"][1],
-                                        }
-                                    else:
-                                        MAP_OVERVIEWS[name] = None
-                                    if MAP_THUMBNAILS[name] or MAP_OVERVIEWS[name]:
+                                        if await is_valid_image_url(leveloverview["image"]):
+                                            MAP_OVERVIEWS[name] = {
+                                                "image": leveloverview["image"],
+                                                "screen": leveloverview["context"][0],
+                                                "location": leveloverview["context"][1],
+                                            }
+                                        else:
+                                            MAP_OVERVIEWS[name] = None
                                         updated_thumbnails = True
                                 except:
                                     # bail out of the update due to errors
                                     break
+                        else:
+                            thumbnail = MAP_THUMBNAILS.get(name)
+                            if thumbnail and not await is_valid_image_url(thumbnail):
+                                MAP_THUMBNAILS[name] = None
+                                updated_thumbnails = True
+                            leveloverview = MAP_OVERVIEWS.get(name)
+                            if leveloverview and not await is_valid_image_url(leveloverview["image"]):
+                                MAP_OVERVIEWS[name] = None
+                                updated_thumbnails = True
 
                 # if we updated any map thumbnails, cache them in the file
                 if updated_thumbnails:
