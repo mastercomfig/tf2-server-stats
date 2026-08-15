@@ -49,6 +49,7 @@ if not TEAMWORK_API_KEY:
     print("Need to pass in TEAMWORK_API_KEY")
     sys.exit(1)
 STEAM_API_PARAM = {"key": STEAM_API_KEY, "format": "json"}
+STEAM_API_PARAM_NO_AUTH = {"format": "json"}
 QUERY_INTERVAL = 10
 QUERY_INTERVAL_VARIANCE = 5
 QUERY_FILTER = r"\appid\440\gamedir\tf\secure\1\dedicated\1\ngametype\hidden,friendlyfire,noquickplay,trade,mvm,pve,gravity\steamblocking\1\nor\1\white\1"
@@ -756,7 +757,7 @@ async def req_items_game(
                             items_game_body, mapper=vdf.VDFDict
                         )["items_game"]
         async with api_session.get(
-            "/IGCVersion_440/GetServerVersion/v1/", params=STEAM_API_PARAM
+            "/IGCVersion_440/GetServerVersion/v1/", params=STEAM_API_PARAM_NO_AUTH
         ) as resp:
             body = await resp.read()
             body = orjson.loads(body)
@@ -1128,6 +1129,8 @@ async def query_runner(
                 except:
                     traceback.print_exc()
 
+                sem = asyncio.Semaphore(150)
+
                 async def calc_server(server):
                     addr = server["addr"]
                     # skip servers with SDR
@@ -1180,7 +1183,7 @@ async def query_runner(
                         ip, port = addr.split(":")
                         if True:
                             try:
-                                server_query = await a2s.ainfo((ip, port))
+                                server_query = await a2s.ainfo((ip, port), timeout=1.5)
                             except:
                                 return None
                             server["appid"] = server_query.app_id
@@ -1244,7 +1247,7 @@ async def query_runner(
                         else:
                             return None
                     num_players = server["players"]
-                    if num_players >= max_players:
+                    if num_players > max_players:
                         # lying about players
                         if DEBUG and not DEBUG_SKIP_SERVERS and False:
                             return {"score": -999, "removal": "playercaplie"}
@@ -1646,7 +1649,7 @@ async def query_runner(
                     score += score_server(num_players, max_players)
                     if updated_servers:
                         try:
-                            server_query = await a2s.ainfo((ip, port))
+                            server_query = await a2s.ainfo((ip, port), timeout=1.5)
                         except:
                             if DEBUG and not DEBUG_SKIP_SERVERS:
                                 return {
@@ -1797,8 +1800,12 @@ async def query_runner(
                         "ping": overhead,
                     }
 
+                async def calc_server_sem(server):
+                    async with sem:
+                        return await calc_server(server)
+
                 server_infos = await asyncio.gather(
-                    *[calc_server(server) for server in pending_servers]
+                    *[calc_server_sem(server) for server in pending_servers]
                 )
                 new_servers = [server for server in server_infos if server]
                 new_servers.sort(key=get_score, reverse=True)

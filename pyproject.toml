@@ -17,7 +17,7 @@ geopy = "^2.4.1"
 brotli = "^1.2.0"
 python-dotenv = "^1.2.1"
 orjson = "^3.11.4"
-cachetools = "^5.3.3"
+cachetools = "^7.1.2"
 pillow = "^12.1.1"
 
 
