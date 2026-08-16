@@ -458,7 +458,7 @@ with open(MAP_THUMBNAILS_PATH, "rb") as fp:
 
 THUMBNAIL_OVERRIDES = {
     # official maps with missing thumbnails
-    "arena_perks": "https://wiki.teamfortress.com/w/images/2/2e/Arena_perks.png",
+    "arena_perks": "https://images.steamusercontent.com/ugc/2030615098404645846/C78E25D8535256E9EEC9F9B08E0B276592BA470B/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "cp_brew": "https://wiki.teamfortress.com/w/images/3/32/Cp_brew.png",
     "cp_canaveral_5cp": "https://wiki.teamfortress.com/w/images/3/39/Cp_canaveral_5cp.png",
     "cp_cargo": "https://wiki.teamfortress.com/w/images/3/3a/Cp_cargo.png",
@@ -499,6 +499,12 @@ THUMBNAIL_OVERRIDES = {
     "plr_hacksaw": "https://wiki.teamfortress.com/w/images/5/5c/Plr_hacksaw.png",
     "vsh_maul": "https://wiki.teamfortress.com/w/images/a/a8/Vsh_maul.png",
     "vsh_outburst": "https://wiki.teamfortress.com/w/images/8/85/Vsh_outburst.png",
+    "pl_redwood": "https://images.steamusercontent.com/ugc/13880204862860380519/8E8E2D5A311C1591827E30EB421A1E8FA62A3361/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+    "koth_dryfield": "https://images.steamusercontent.com/ugc/34447734098693138/F5D268D59DE717712C0598660C405BFE74D69A07/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+    "koth_shorelight": "https://images.steamusercontent.com/ugc/38948281669509704/0E9F0B35916E87430A41B2068C3162AE3AB9B98D/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+    "koth_camp_saxton": "https://images.steamusercontent.com/ugc/2046366098090407365/3754F53EB1FD62549AB53BAA161A3FA7D93EC7B3/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+    "cp_premuda": "https://images.steamusercontent.com/ugc/17900396812074275553/5EB4079909AA6B2F60D6C80200772CB86065D006/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
+    "cp_mojave": "https://images.steamusercontent.com/ugc/521637162503539430/63BBDD7ECAB8500887FD10544042B77FA5A12DB7/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     # community map thumbnails
     "cp_albany_b7": "https://images.steamusercontent.com/ugc/45707282266949428/836816918E6290E3C7834BC4C490A76DD3CD164D/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
     "cp_alveare_v6": "https://images.steamusercontent.com/ugc/9781865369722700037/92ABFF590DA5A7C753A22AE42C80B8E490FBF264/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false",
